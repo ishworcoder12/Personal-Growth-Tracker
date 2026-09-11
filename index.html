@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Growth & ACT Tracker</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#161d14" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --bg: #161d14;
+    --bg-soft: #1d2519;
+    --surface: #212b1c;
+    --surface-2: #2a3523;
+    --line: #384631;
+    --moss: #93b17e;
+    --moss-dim: #64815a;
+    --moss-deep: #4b6b44;
+    --clay: #bd7e56;
+    --clay-dim: #8a5c3d;
+    --gold: #d7a752;
+    --rose: #c17470;
+    --lotus: #c79bd8;
+    --text: #f0ead9;
+    --subtext: #a7af98;
+    --faint: #6f7864;
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --radius-sm: 9px;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    font-family: 'Inter', -apple-system, sans-serif;
+    background:
+      radial-gradient(ellipse at 20% -10%, #24301d 0%, transparent 55%),
+      var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 18px 14px 40px;
+    display:flex;
+    justify-content:center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container{ width:100%; max-width: 460px; }
+  h1,h2,h3,h4{ margin:0; font-family:'Fraunces', serif; font-weight:600; color:var(--text); }
+  p{ margin:0; }
+
+  .app-header{ margin-bottom: 18px; }
+  .app-header .brand{ display:flex; align-items:baseline; gap:8px; }
+  .app-header h1{ font-size: 26px; letter-spacing: -0.01em; }
+  .app-header .leafmark{ font-size:18px; }
+  .app-header .tagline{ color:var(--subtext); font-size:13px; margin-top:3px; font-family:'Fraunces',serif; font-style:italic; }
+
+  .tab-nav{ display:flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+  .tab-btn{ flex:1; background:none; border:none; color:var(--faint); font-family:'Inter'; font-weight:600; font-size:13px; padding: 10px 2px 12px; cursor:pointer; position:relative; transition: color .15s ease; }
+  .tab-btn.active{ color:var(--moss); }
+  .tab-btn.active::after{ content:''; position:absolute; left:8%; right:8%; bottom:-1px; height:2px; background: var(--moss); border-radius: 2px; }
+  .hidden{ display:none !important; }
+
+  .card{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px; margin-bottom: 14px; }
+  .card h3{ font-size:16px; margin-bottom: 4px; }
+  .subnote{ color:var(--subtext); font-size:12.5px; line-height:1.5; }
+
+  .section-heading{ display:flex; justify-content:space-between; align-items:baseline; margin: 22px 0 10px; }
+  .section-heading h2{ font-size: 19px; }
+
+  button{ font-family:'Inter'; }
+  .btn{ background: var(--moss-deep); color: var(--text); border:none; padding:10px 16px; border-radius: 30px; font-weight:600; font-size:13.5px; cursor:pointer; transition: filter .15s ease, transform .05s ease; }
+  .btn:hover{ filter:brightness(1.12); }
+  .btn:active{ transform: scale(0.98); }
+  .btn.active{ background: var(--gold); color:#241a06; }
+  .btn.danger{ background: var(--rose); color:#2a1210; }
+  .btn.ghost{ background: transparent; border:1px solid var(--line); color:var(--subtext); }
+  .btn.block{ width:100%; }
+  .btn.small{ padding:6px 12px; font-size:12px; }
+  .icon-btn{ background:transparent; border:none; color:var(--faint); font-size:19px; cursor:pointer; padding:2px 8px; border-radius:6px; line-height:1; }
+  .icon-btn:hover{ background:var(--surface-2); color:var(--text); }
+  .icon-btn.timer{ font-size:13px; padding:4px 7px; border:1px solid var(--line); }
+  .icon-btn.timer.on{ color:var(--gold); border-color:var(--gold); }
+
+  .active-clock-card{ background: linear-gradient(160deg, #2c3b23, #1a2116); border: 1px solid var(--moss-deep); text-align:center; }
+  .active-clock-card .eyebrow{ color:var(--moss); font-size:12px; font-weight:600; }
+  .clock-display{ font-family:'Fraunces', serif; font-size:38px; font-weight:600; color: var(--moss); margin: 4px 0 10px; letter-spacing: 1px; }
+  .tick-dot{ animation: blink 1s infinite; }
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.25;} }
+
+  .ring-wrap{ display:flex; align-items:center; gap:16px; }
+  .ring{ width:88px; height:88px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; background: conic-gradient(var(--moss) calc(var(--pct,0)*1%), var(--surface-2) 0); }
+  .ring-inner{ width:68px; height:68px; border-radius:50%; background:var(--surface); display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .ring-inner b{ font-family:'Fraunces',serif; font-size:19px; }
+  .ring-inner span{ font-size:9px; color:var(--faint); }
+
+  .task-row{ display:flex; justify-content:space-between; align-items:center; margin-top:10px; gap:10px; }
+  .task-menu{ display:flex; gap:6px; margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
+  .progress-bar-bg{ background:var(--surface-2); height:8px; border-radius:6px; overflow:hidden; margin-top:10px; }
+  .progress-bar-fill{ background: linear-gradient(90deg, var(--moss-dim), var(--moss)); height:100%; width:0%; transition:width .3s ease; border-radius:6px; }
+
+  .toggle-btn{ padding:11px; border-radius: var(--radius-sm); border:1px solid var(--line); font-weight:600; width:100%; cursor:pointer; background:var(--surface-2); color:var(--text); font-size:13.5px; }
+  .toggle-btn.done{ background: rgba(147,177,126,0.18); border-color: var(--moss); color: var(--moss); }
+
+  .escapism-card{ border-color: var(--clay-dim); }
+
+  input, textarea, select{ width:100%; background: var(--bg-soft); border:1px solid var(--line); color:var(--text); padding:9px 10px; border-radius: var(--radius-sm); margin-top:6px; box-sizing:border-box; font-family:'Inter'; font-size:13.5px; }
+  input:focus, textarea:focus, select:focus{ outline:2px solid var(--moss-dim); outline-offset:1px; }
+  label{ font-size:12px; color:var(--subtext); }
+
+  .calendar-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-top:12px; justify-items:center; }
+  .cal-dow{ font-size:11px; color:var(--faint); font-weight:600; margin-bottom:2px; }
+  .day-circle{ width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; cursor:pointer; color:var(--text); border:2px solid var(--surface-2); box-sizing:border-box; transition: border-color .15s ease; }
+  .day-circle.selected{ border-color: var(--gold); }
+  .day-circle.today{ box-shadow: 0 0 0 1px var(--moss) inset; }
+
+  .streak-row{ display:flex; gap:10px; margin-top:4px; }
+  .streak-pill{ flex:1; background:var(--surface-2); border-radius: var(--radius-sm); padding:10px; text-align:center; }
+  .streak-pill b{ display:block; font-family:'Fraunces',serif; font-size:20px; color:var(--gold); }
+  .streak-pill span{ font-size:10.5px; color:var(--subtext); }
+
+  .sparkline{ width:100%; height:60px; margin-top:6px; }
+
+  /* subtasks (career only) */
+  .subtask-list{ margin-top:8px; }
+  .subtask-row{ display:flex; align-items:center; gap:7px; padding:6px 0; border-bottom:1px solid var(--line); }
+  .subtask-row:last-child{ border-bottom:none; }
+  .subtask-check{ width:17px; height:17px; border-radius:5px; border:1.5px solid var(--moss-dim); cursor:pointer; flex-shrink:0; }
+  .subtask-check.on{ background:var(--moss); border-color:var(--moss); }
+  .subtask-row span.stext{ flex:1; font-size:12.5px; }
+  .subtask-row span.stext.done{ text-decoration:line-through; color:var(--faint); }
+  .subtask-row .smins{ font-size:11px; color:var(--gold); white-space:nowrap; }
+  .mini-timer-btn{ min-width:54px; }
+  .subtask-badge{ font-size:11px; color:var(--gold); font-weight:600; }
+
+  /* ACT quick grid */
+  .quick-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:8px; margin-top:6px; }
+  .quick-btn{ background:var(--surface); border:1px solid var(--line); border-radius: var(--radius-md); padding:14px 6px; display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; color:var(--text); }
+  .quick-btn .ic{ font-size:22px; }
+  .quick-btn span{ font-size:11.5px; font-weight:600; text-align:center; }
+  .quick-btn.active{ border-color: var(--moss); background: rgba(147,177,126,0.1); }
+
+  .breath-orb-wrap{ display:flex; flex-direction:column; align-items:center; padding:10px 0 4px; }
+  .breath-orb{ width:70px; height:70px; border-radius:50%; background: radial-gradient(circle at 35% 30%, var(--moss), var(--moss-deep)); transition: transform 4s ease-in-out; }
+  .breath-label{ margin-top:10px; font-size:13px; color:var(--moss); font-weight:600; min-height:18px; }
+
+  .ground-step{ font-size:13px; color:var(--text); margin-bottom:6px; }
+  .ground-progress{ display:flex; gap:4px; margin-top:10px; }
+  .ground-progress span{ flex:1; height:4px; background:var(--surface-2); border-radius:3px; }
+  .ground-progress span.done{ background:var(--moss); }
+
+  .value-row{ margin-top:10px; }
+  .value-row .vlabel{ display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; }
+  .value-row .vlabel b{ font-weight:600; }
+  .value-row .vlabel span{ color:var(--gold); font-weight:600; }
+  input[type=range]{ -webkit-appearance:none; height:5px; background:var(--surface-2); border-radius:3px; margin-top:4px; padding:0; }
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:15px; height:15px; border-radius:50%; background:var(--moss); cursor:pointer; margin-top:-5px; }
+
+  .ladder-row{ display:flex; align-items:center; gap:8px; padding:9px 0; border-bottom:1px solid var(--line); }
+  .ladder-row:last-child{ border-bottom:none; }
+  .ladder-diff{ width:26px; height:26px; border-radius:8px; background:var(--surface-2); color:var(--gold); display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; flex-shrink:0; }
+  .ladder-text{ flex:1; font-size:13px; }
+  .ladder-text.done{ text-decoration: line-through; color:var(--faint); }
+  .ladder-check{ width:20px; height:20px; border-radius:5px; border:1.5px solid var(--moss-dim); cursor:pointer; flex-shrink:0; }
+  .ladder-check.on{ background:var(--moss); border-color:var(--moss); }
+
+  .exp-item{ padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .exp-item:last-child{ border-bottom:none; }
+  .exp-item .meta{ color:var(--subtext); font-size:12px; margin-top:2px;}
+  .exp-item .tag{ color:var(--moss); font-size:10.5px; font-weight:700; }
+  .exp-item .note{ font-size:12px; color:#cfd6c2; margin-top:3px; font-style:italic; }
+
+  /* elaborated reference guide */
+  .guide-step{ display:flex; gap:10px; padding:14px 0; border-bottom:1px solid var(--line); }
+  .guide-step:last-child{ border-bottom:none; }
+  .guide-num{ width:22px; height:22px; border-radius:50%; background:var(--surface-2); color:var(--gold); font-family:'Fraunces',serif; font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px; }
+  .guide-step h4{ font-size:14px; margin-bottom:4px; }
+  .guide-step p{ font-size:12.5px; color:var(--subtext); line-height:1.6; }
+  .glabel{ font-size:11px; font-weight:700; color:var(--moss); margin-top:9px; margin-bottom:3px; }
+  .guide-step ul{ margin:2px 0 0; padding-left:16px; }
+  .guide-step li{ font-size:12.5px; color:var(--subtext); line-height:1.65; }
+  .guide-intro{ font-size:12.5px; color:var(--subtext); line-height:1.6; margin-bottom:6px; }
+  .guide-step-inline{ font-size:12.5px; color:var(--subtext); line-height:1.65; margin:3px 0; }
+
+  .dharma-header{ display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+  .dharma-item{ padding:9px 0; border-bottom:1px solid var(--line); }
+  .dharma-item:last-child{ border-bottom:none; }
+  .dharma-item .concept{ font-size:12px; color:var(--lotus); font-weight:600; margin-bottom:2px; }
+  .dharma-item .note{ font-size:13px; color:var(--text); }
+  .dharma-item .date{ font-size:11px; color:var(--faint); margin-top:2px; }
+
+
+  .dharma-meditate-btn{ margin-left:auto; display:flex; flex-direction:column; align-items:center; gap:2px; background:transparent; border:1px solid var(--line); color:var(--subtext); border-radius:12px; padding:6px 9px; cursor:pointer; min-width:58px; }
+  .dharma-meditate-btn:hover{ border-color:var(--lotus); color:var(--lotus); }
+  .meditate-buddha{ font-size:19px; line-height:1; }
+  .dharma-meditate-btn span:last-child{ font-size:9px; }
+
+  .empty{ color:var(--faint); font-size:12.5px; padding: 6px 0; }
+
+  .loading-screen{ position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; z-index:50; }
+  .loading-screen .orb{ width:28px; height:28px; border-radius:50%; background:var(--moss); animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{ transform:scale(0.7); opacity:.5; } 50%{ transform:scale(1); opacity:1; } }
+  .loading-screen span{ color:var(--subtext); font-size:13px; }
+
+  .toast{ position: fixed; left:50%; bottom:24px; transform:translateX(-50%); background: var(--surface-2); border:1px solid var(--line); color:var(--text); padding:10px 18px; border-radius: 30px; font-size:13px; box-shadow:0 8px 20px rgba(0,0,0,.4); opacity:0; pointer-events:none; transition: opacity .25s ease, transform .25s ease; z-index:40; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="orb"></div>
+  <span>Gathering your progress…</span>
+</div>
+
+<div class="container hidden" id="mainApp">
+
+  <div class="app-header">
+    <div class="brand"><span class="leafmark">🌱</span><h1>Growth & ACT</h1></div>
+    <div class="tagline">Small, honest reps — not a perfect streak.</div>
+  </div>
+
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="showTab('dashboard', this)">Today</button>
+    <button class="tab-btn" onclick="showTab('calendar', this)">History</button>
+    <button class="tab-btn" onclick="showTab('act', this)">ACT Toolkit</button>
+    <button class="tab-btn" onclick="showTab('log', this)">Reflection</button>
+  </div>
+
+  <!-- ============ DASHBOARD ============ -->
+  <div id="dashboard" class="tab-content">
+
+    <div id="activeClockCard" class="card active-clock-card hidden">
+      <div class="eyebrow">Currently running</div>
+      <div id="activeTaskTitle" style="font-weight:600; font-size:16px; margin-top:4px; font-family:'Fraunces',serif;">Task</div>
+      <div class="clock-display" id="clockDisplay">00<span class="tick-dot">:</span>00<span class="tick-dot">:</span>00</div>
+      <button class="btn danger" onclick="stopAllTimers()">Stop current task</button>
+    </div>
+
+    <div class="card">
+      <div class="ring-wrap">
+        <div class="ring" id="dayRing">
+          <div class="ring-inner"><b id="ringScore">0%</b><span>today</span></div>
+        </div>
+        <div style="flex:1;">
+          <h3>Today's execution</h3>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Exposure rep, done today?</h3>
+      <p class="subnote" style="margin-bottom:2px;">One small social-anxiety exposure counts — see it logged properly in the ACT Toolkit.</p>
+      <button id="dashExposureBtn" class="toggle-btn" style="margin-top:10px;" onclick="toggleDailyExposure()">Not yet today</button>
+    </div>
+
+    <div class="section-heading">
+      <h2>Growth & career tasks</h2>
+      <button class="btn ghost small" onclick="toggleAddTaskForm()">+ Add</button>
+    </div>
+
+    <div id="addTaskCard" class="card hidden">
+      <h3 id="formTitle">Add a task</h3>
+      <input type="hidden" id="editTaskId" value="" />
+      <label>Name</label>
+      <input type="text" id="newTaskName" placeholder="e.g. Reading industry papers" />
+      <div style="display:flex; gap:8px; margin-top:6px;">
+        <div style="flex:1;"><label>Floor (min)</label><input type="number" id="newTaskFloor" value="15" /></div>
+        <div style="flex:1;"><label>Target (min)</label><input type="number" id="newTaskTarget" value="60" /></div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <button class="btn block" onclick="saveTaskFromForm()">Save</button>
+        <button class="btn ghost block" onclick="toggleAddTaskForm()">Cancel</button>
+      </div>
+    </div>
+
+    <div id="tasksContainer"></div>
+
+    <div class="section-heading"><h2>Escapism & unplanned screen time</h2></div>
+    <div class="card escapism-card">
+      <div style="font-weight:600; font-size:14.5px;">Gaming / phone drift</div>
+      <p class="subnote">−1% from today's score for every 2 minutes over.</p>
+      <div class="task-row">
+        <div><span id="escapismTime" style="font-size:19px; font-weight:700; font-family:'Fraunces',serif;">0</span> min
+          <span style="color:var(--clay); font-size:12.5px;" id="escapismPenalty">(-0%)</span>
+        </div>
+        <button class="btn" id="escapismBtn" onclick="toggleEscapismTimer()">Track</button>
+      </div>
+      <div style="margin-top:12px; border-top:1px dashed var(--line); padding-top:10px;">
+        <label>Or enter today's phone Screen Time (min)</label>
+        <div style="display:flex; gap:6px;">
+          <input type="number" id="screenTimeInput" placeholder="e.g. 45" />
+          <button class="btn ghost small" style="margin-top:6px; white-space:nowrap;" onclick="syncScreenTime()">Sync</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CALENDAR / HISTORY ============ -->
+  <div id="calendar" class="tab-content hidden">
+    <div class="section-heading" style="margin-top:0;"><h2>History</h2></div>
+
+    <div class="streak-row">
+      <div class="streak-pill"><b id="streakExposure">0</b><span>day exposure streak</span></div>
+      <div class="streak-pill"><b id="streakAvg">0%</b><span>last 7 day avg</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Last two weeks</h3>
+      <svg class="sparkline" id="sparkline" viewBox="0 0 300 60" preserveAspectRatio="none"></svg>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <select id="calMonthSelect" onchange="renderCalendar()">
+          <option value="0">January</option><option value="1">February</option>
+          <option value="2">March</option><option value="3">April</option>
+          <option value="4">May</option><option value="5">June</option>
+          <option value="6">July</option><option value="7">August</option>
+          <option value="8">September</option><option value="9">October</option>
+          <option value="10">November</option><option value="11">December</option>
+        </select>
+        <select id="calYearSelect"></select>
+      </div>
+      <p class="subnote">Each ring fills to that day's overall execution score — task progress, exposure work, and screen-time drift blended together, same as Today.</p>
+      <div class="calendar-grid" id="calendarGrid"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 id="selectedDateTitle">Today's score</h3>
+        <span style="font-size:22px; font-weight:700; color:var(--moss); font-family:'Fraunces',serif;" id="calScoreText">0%</span>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="calScoreFill"></div></div>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button class="btn block" onclick="saveDayToHistory()">Save today</button>
+        <button class="btn danger block" onclick="resetCurrentDay()">Reset timers</button>
+      </div>
+    </div>
+
+    <div class="section-heading"><h2>Task calendars</h2></div>
+    <div class="card">
+      <p class="subnote">Pick a task to see just its own day-by-day completion — the ring fills partially or fully based on that task's progress for the day, using the month and year above.</p>
+      <select id="taskCalSelect" onchange="renderTaskCalendar()"></select>
+      <div class="calendar-grid" id="taskCalendarGrid" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card">
+      <h3>Saved days</h3>
+      <div id="historyList" class="empty">No saved days yet.</div>
+    </div>
+  </div>
+
+  <!-- ============ ACT TOOLKIT ============ -->
+  <div id="act" class="tab-content hidden">
+    <div class="section-heading" style="margin-top:0;"><h2>ACT toolkit</h2></div>
+    <p class="subnote" style="margin-bottom:12px;">Anxious in the moment? Start here. These three are quick, no reading required.</p>
+
+    <div class="quick-grid" id="quickGrid">
+      <button class="quick-btn" id="qbtn-ground" onclick="openQuickPractice('ground')"><span class="ic">🌿</span><span>Ground</span></button>
+      <button class="quick-btn" id="qbtn-breathe" onclick="openQuickPractice('breathe')"><span class="ic">🌊</span><span>Breathe</span></button>
+      <button class="quick-btn" id="qbtn-defuse" onclick="openQuickPractice('defuse')"><span class="ic">🍃</span><span>Unhook a thought</span></button>
+    </div>
+    <div class="card hidden" id="quickPracticeCard"></div>
+
+    <div class="section-heading"><h2>Your ladder</h2></div>
+    <div class="card">
+      <p class="subnote">Situations you're avoiding, roughly ordered from easiest to hardest. Climb one rung at a time — you don't need to be ready, just willing.</p>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <input type="text" id="ladderText" placeholder="e.g. Ask a question in a group meeting" style="flex:2;" />
+        <input type="number" id="ladderDiff" min="1" max="10" value="5" style="flex:0 0 60px;" />
+      </div>
+      <button class="btn block" style="margin-top:10px;" onclick="addLadderItem()">Add rung</button>
+      <div id="ladderList" style="margin-top:6px;"></div>
+    </div>
+
+    <div class="section-heading"><h2>Log an exposure</h2></div>
+    <div class="card">
+      <label>What did you do?</label>
+      <input type="text" id="expTrigger" placeholder="e.g. Sent a cold networking message" />
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <div style="flex:1;"><label>Pre-anxiety (1–10)</label><input type="number" id="preAnxiety" min="1" max="10" value="6" /></div>
+        <div style="flex:1;"><label>Post-anxiety (1–10)</label><input type="number" id="postAnxiety" min="1" max="10" value="3" /></div>
+      </div>
+      <div style="margin-top:10px; font-size:13px;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text);">
+          <input type="checkbox" id="droppedSafetyCheck" style="width:auto; margin:0;" /> Dropped safety behaviors (eye contact kept, no rushing)
+        </label>
+      </div>
+      <label style="margin-top:10px; display:block;">Defusion note</label>
+      <textarea id="defusionNote" rows="2" placeholder="I noticed my mind saying... and I did it anyway."></textarea>
+      <button class="btn block" style="margin-top:12px;" onclick="saveExposureRep()">Save rep (+10% today)</button>
+    </div>
+
+    <div class="card">
+      <h3>Today's exposures</h3>
+      <div id="exposureList" class="empty">None logged today.</div>
+    </div>
+
+    <div class="section-heading"><h2>What you're moving toward</h2></div>
+    <div class="card">
+      <p class="subnote">Not a mood to chase — a direction worth choosing, especially on the hard days.</p>
+      <div id="valuesArea"></div>
+    </div>
+
+    <div class="section-heading"><h2>Steady, honest check-in</h2></div>
+    <div class="card">
+      <label>What have you tried to make the anxiety go away — and did it actually last?</label>
+      <textarea id="note-hopelessness" rows="3" placeholder="e.g. Over-preparing every sentence in advance — helps for five minutes, exhausting, doesn't hold."></textarea>
+      <button class="btn small" style="margin-top:8px;" onclick="saveActNote('hopelessness')">Save note</button>
+    </div>
+
+    <div class="card">
+      <button class="btn ghost block" onclick="toggleReference()">What's this all based on?</button>
+      <div id="referenceBox" class="hidden" style="margin-top:6px;"></div>
+    </div>
+  </div>
+
+  <!-- ============ REFLECTION ============ -->
+  <div id="log" class="tab-content hidden">
+    <div class="section-heading" style="margin-top:0;"><h2>Daily reflection</h2></div>
+    <div class="card">
+      <label>What threw the day off? (Bad time estimates, avoidance, triggers — just the data, not the verdict.)</label>
+      <textarea id="misjudgmentNote" rows="5" placeholder="Record what happened, plainly."></textarea>
+      <button class="btn block" style="margin-top:12px;" onclick="saveReflection()">Save reflection</button>
+    </div>
+    <div class="card">
+      <h3>Past reflections</h3>
+      <div id="reflectionList" class="empty">Nothing written yet.</div>
+    </div>
+
+    <div class="section-heading"><h2>Dharma reflection</h2></div>
+    <div class="card">
+      <div class="dharma-header">
+        <svg width="30" height="30" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="5" r="4" fill="var(--lotus)"/>
+          <circle cx="50" cy="24" r="14" fill="var(--lotus)"/>
+          <path d="M20 80c0-23 13-40 30-40s30 17 30 40c-10 6-20 9-30 9s-20-3-30-9z" fill="var(--lotus)"/>
+          <ellipse cx="50" cy="82" rx="35" ry="9" fill="var(--lotus)" opacity="0.5"/>
+        </svg>
+        <p class="subnote" style="margin:0;">A concept you sat with, or what came up during or after practice. Keep it short.</p><button class="dharma-meditate-btn" type="button" onclick="dharmaMeditate(this)" aria-label="Begin simple meditation"><span class="meditate-buddha">☸</span><span>Pause & sit</span></button>
+      </div>
+      <label>Concept or practice (optional)</label>
+      <input type="text" id="dharmaConcept" placeholder="e.g. Anicca (impermanence), breath meditation" />
+      <label style="margin-top:8px; display:block;">What you noticed</label>
+      <textarea id="dharmaNote" rows="3" placeholder="What came up, what settled, what you're sitting with."></textarea>
+      <button class="btn block" style="margin-top:12px;" onclick="saveDharma()">Save</button>
+    </div>
+    <div class="card">
+      <h3>Past entries</h3>
+      <div id="dharmaList" class="empty">Nothing written yet.</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   STORAGE LAYER — window.storage (async, replaces localStorage)
+   ============================================================ */
+// If this file is running inside the Claude artifact environment, a real
+// window.storage already exists and this shim is skipped entirely. Outside
+// it (hosted as a plain PWA, or wrapped into an app) there is no such API,
+// so this backs the exact same get/set/delete/list shape with localStorage
+// instead — nothing else in the file needs to change.
+window.storage = window.storage || {
+  async get(key, shared){
+    try{
+      const raw = localStorage.getItem('gat:'+key);
+      return raw === null ? null : { key, value: raw, shared: !!shared };
+    }catch(e){ return null; }
+  },
+  async set(key, value, shared){
+    try{
+      localStorage.setItem('gat:'+key, value);
+      return { key, value, shared: !!shared };
+    }catch(e){ return null; }
+  },
+  async delete(key, shared){
+    try{
+      localStorage.removeItem('gat:'+key);
+      return { key, deleted:true, shared: !!shared };
+    }catch(e){ return null; }
+  },
+  async list(prefix, shared){
+    try{
+      const pfx = 'gat:'+(prefix||'');
+      const keys = [];
+      for(let i=0;i<localStorage.length;i++){
+        const k = localStorage.key(i);
+        if(k && k.indexOf(pfx)===0) keys.push(k.slice(4));
+      }
+      return { keys, prefix, shared: !!shared };
+    }catch(e){ return null; }
+  }
+};
+
+async function loadJSON(key, fallback){
+  try{
+    const r = await window.storage.get(key, false);
+    return r ? JSON.parse(r.value) : fallback;
+  }catch(e){ return fallback; }
+}
+async function saveJSON(key, obj){
+  try{
+    const r = await window.storage.set(key, JSON.stringify(obj), false);
+    if(!r) console.error('Storage set returned null for', key);
+  }catch(e){ console.error('Storage error', key, e); }
+}
+
+let saveTimer = null;
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{
+    persistTrackerState();
+    saveJSON('task-history', taskHistory);
+  }, 2500);
+}
+async function persistTrackerState(){
+  await saveJSON('tracker-state', {
+    tasks, escapismSec, exposureDoneToday, exposureReps,
+    values, hierarchy, actNotes, exposureDaysLog
+  });
+}
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const defaultTasks = [
+  { id:'meditation', name:'Meditation', floor:5, target:10, elapsedSec:0, isRunning:false, showMenu:false, allowSubtasks:false, subtasks:[], dailySec:{} },
+  { id:'exercise', name:'Exercise', floor:10, target:10, elapsedSec:0, isRunning:false, showMenu:false, allowSubtasks:false, subtasks:[], dailySec:{} },
+  { id:'german', name:'German Practice', floor:10, target:90, elapsedSec:0, isRunning:false, showMenu:false, allowSubtasks:false, subtasks:[], dailySec:{} },
+  { id:'career', name:'Career / Research', floor:15, target:120, elapsedSec:0, isRunning:false, showMenu:false, allowSubtasks:true, subtasks:[], dailySec:{} }
+];
+const defaultValues = { Career:5, Connection:5, Health:5, Growth:5, Creativity:5, Contribution:5, intention:'' };
+
+let tasks = defaultTasks;
+let escapismSec = 0;
+let escapismRunning = false;
+let exposureDoneToday = false;
+let exposureReps = [];
+let values = { ...defaultValues };
+let hierarchy = [];
+let actNotes = {};
+let exposureDaysLog = [];
+let savedHistory = {};
+let taskHistory = {};
+let reflections = {};
+let dharmaLog = [];
+// Local calendar date (NOT UTC) — toISOString() shifts the date for anyone
+// not at UTC+0, which used to roll "today" over at the wrong clock time.
+function localDateStr(d = new Date()){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+let todayStr = localDateStr();
+let selectedDate = todayStr;
+let activeQuickPractice = null;
+let lastTickAt = Date.now();
+
+// Called every tick so a tab left open across midnight rolls over on its own,
+// instead of silently carrying yesterday's clock totals into a new day.
+function checkForNewDay(){
+  const nowStr = localDateStr();
+  if(nowStr === todayStr) return;
+  const prevToday = todayStr;
+
+  savedHistory[prevToday] = getNetDailyScore();
+  saveJSON('history', savedHistory);
+  tasks.forEach(t=>{
+    taskHistory[t.id] = taskHistory[t.id] || {};
+    taskHistory[t.id][prevToday] = calculateProgress(t);
+  });
+  saveJSON('task-history', taskHistory);
+
+  if(selectedDate === prevToday) selectedDate = nowStr;
+  todayStr = nowStr;
+  exposureDoneToday = false;
+  exposureReps = [];
+  escapismSec = 0;
+  if(escapismRunning){ escapismRunning = false; }
+
+  persistTrackerState();
+  renderTasks(); renderCalendar(); renderExposureList(); updateUI();
+  toast('New day — yesterday saved to History.');
+}
+
+const REFERENCE = [
+  {
+    title:'Creative hopelessness', sub:'Start here if you\u2019re stuck',
+    what:'Most people arrive at ACT after years of trying to out-think, avoid, or white-knuckle their anxiety away. Creative hopelessness is the honest audit: listing what you\u2019ve actually tried to control the fear, and admitting whether it worked beyond the next few minutes.',
+    why:'This isn\u2019t about giving up \u2014 it\u2019s about giving up on one specific plan (eliminating anxiety before acting) so you have hands free for a plan that can actually work (acting alongside it).',
+    how:[
+      'List 2\u20133 things you\u2019ve tried to control or avoid the anxiety \u2014 over-preparing, rehearsing exits, avoiding eye contact, cancelling plans.',
+      'For each one, ask: did it work beyond the next few minutes? Did it cost you something \u2014 energy, connection, an opportunity?',
+      'Write the answer down in the check-in box above. You\u2019re gathering data, not passing a verdict on yourself.'
+    ],
+    trap:'The trap is turning this into self-criticism (\u201cI\u2019ve failed at this\u201d). It\u2019s workability data, not a verdict on you \u2014 come back to this step any time an old avoidance habit resurfaces.'
+  },
+  {
+    title:'Cognitive defusion', sub:'Loosen the thought, don\u2019t fight it',
+    what:'Defusion means noticing a thought as a mental event \u2014 words and pictures passing through \u2014 instead of automatically treating it as literal truth or an instruction.',
+    why:'A thought you\u2019re fused with (\u201cEveryone thinks I\u2019m boring\u201d) feels like a fact you must obey. The same thought, defused (\u201cI\u2019m having the thought that everyone thinks I\u2019m boring\u201d), loses none of its content but a lot of its grip.',
+    how:[
+      'Catch the thought as it shows up \u2014 often something like \u201cthey can tell I\u2019m nervous\u201d or \u201cI said that wrong.\u201d',
+      'Open the Unhook a thought tool above and try one technique on it.',
+      'Notice: the thought is probably still there. That\u2019s fine \u2014 the goal is more room to act, not a quieter mind.'
+    ],
+    trap:'Defusion isn\u2019t a debate club \u2014 you\u2019re not trying to prove the thought wrong. Arguing with it usually feeds it. You\u2019re just changing your relationship to it.'
+  },
+  {
+    title:'Body expansion & acceptance', sub:'Make room for the sensation',
+    what:'Anxiety shows up physically first \u2014 tight chest, racing pulse, shallow breath. Acceptance here means breathing into that sensation and letting it be there, rather than bracing against it or trying to force it out.',
+    why:'Fighting a sensation usually amplifies it and adds a second layer of struggle on top of the first. Willingness doesn\u2019t make the sensation vanish \u2014 it just stops the fight that was making it worse.',
+    how:[
+      'Locate the sensation \u2014 chest, stomach, throat, hands.',
+      'Breathe into that spot, not away from it, for 3\u20135 slow breaths. The Breathe tool above can pace this for you.',
+      'Silently ask: \u201ccan I let this be here for now, even if I don\u2019t like it?\u201d \u2014 no need to answer yes right away.'
+    ],
+    trap:'Acceptance isn\u2019t resignation or liking it. You can find a feeling unpleasant and still choose not to fight it \u2014 those are two different things.'
+  },
+  {
+    title:'Present moment awareness', sub:'Come back to right now',
+    what:'Social anxiety runs largely on rehearsal (what if it goes wrong) and replay (it definitely went wrong). Present-moment awareness anchors attention in what\u2019s actually happening \u2014 through the senses \u2014 instead of the story about it.',
+    why:'You can only act on purpose in the present. Every values-based step happens now, not in the rehearsed future or the replayed past.',
+    how:[
+      'When you notice you\u2019ve drifted into rehearsal or replay, pause.',
+      'Use the Ground tool above (5\u20134\u20133\u20132\u20131) or simply name 3 things you can literally sense right now.',
+      'Let that be enough \u2014 you\u2019re re-orienting attention, not trying to erase the thought.'
+    ],
+    trap:'This is a brief anchor, not a cure for the anxiety. Expect the feeling to still be there after grounding \u2014 that\u2019s not a failure of the tool.'
+  },
+  {
+    title:'Values clarification', sub:'What you\u2019re moving toward',
+    what:'Values are chosen directions (\u201cbeing an engaged colleague\u201d), not outcomes you can tick off (\u201cget promoted\u201d) or feelings you can chase (\u201cfeel confident\u201d). Clarifying them gives exposure work a reason that outlasts the discomfort.',
+    why:'\u201cReduce anxiety\u201d is a weak compass \u2014 it only points away from things. \u201cBecome someone who shows up for real connection\u201d points toward something, and it\u2019s still true on the hard days.',
+    how:[
+      'Rate the domains in the Values Compass above \u2014 go with gut instinct, not what you think you should value.',
+      'Pick the one that matters most to you this week.',
+      'Ask: \u201cwhat\u2019s one small action this week that this value would want from me?\u201d Write it as your daily intention.'
+    ],
+    trap:'Don\u2019t confuse a value with a goal. \u201cHave 5 close friends\u201d is a goal. \u201cShow up authentically in relationships\u201d is the value underneath it \u2014 the goal can fail and the value still stands.'
+  },
+  {
+    title:'Committed action', sub:'Where the other five pay off',
+    what:'This is where everything else pays off: taking a concrete, values-aligned action \u2014 sized so it\u2019s hard but doable \u2014 while deliberately dropping the small \u201csafety behaviors\u201d (avoiding eye contact, rehearsing lines, rushing) that quietly keep the fear in charge.',
+    why:'Each rep teaches your nervous system, through direct experience, that you can act while anxious and the anxiety isn\u2019t the threat it feels like. That evidence doesn\u2019t build any other way.',
+    how:[
+      'Choose a rung from your ladder above that\u2019s hard but doable \u2014 not the easiest, not the hardest.',
+      'Before you act, name one safety behavior you\u2019ll deliberately drop this time.',
+      'Do it, then log it in the exposure log. The before/after numbers matter less than the fact that you did the rep.'
+    ],
+    trap:'Bigger isn\u2019t better. A rep so hard you bail teaches the opposite lesson. Undersized and repeatable beats oversized and avoided \u2014 if you\u2019re stuck, go one rung down.'
+  }
+];
+
+/* ============================================================
+   INIT
+   ============================================================ */
+(async function init(){
+  const ts = await loadJSON('tracker-state', null);
+  if(ts){
+    tasks = (ts.tasks || defaultTasks).map(t => ({ subtasks:[], allowSubtasks:false, dailySec:{}, ...t, allowSubtasks:(t.id==='career') }));
+    escapismSec = ts.escapismSec || 0;
+    exposureDoneToday = ts.exposureDoneToday || false;
+    exposureReps = ts.exposureReps || [];
+    values = ts.values || { ...defaultValues };
+    hierarchy = ts.hierarchy || [];
+    actNotes = ts.actNotes || {};
+    exposureDaysLog = ts.exposureDaysLog || [];
+  }
+  savedHistory = await loadJSON('history', {});
+  taskHistory = await loadJSON('task-history', {});
+  reflections = await loadJSON('reflections', {});
+  dharmaLog = await loadJSON('dharma-log', []);
+
+  tasks.forEach(t=>{
+    t.isRunning=false; t.showMenu=false;
+    if(!t.subtasks) t.subtasks=[];
+    if(!t.dailySec) t.dailySec={};
+    t.subtasks.forEach(s=>{ s.isRunning=false; if(s.elapsedSec===undefined) s.elapsedSec=0; if(!s.dailySec) s.dailySec={}; });
+  });
+  escapismRunning = false;
+
+  const yearSelect = document.getElementById('calYearSelect');
+  const nowYear = new Date().getFullYear();
+  for(let y=nowYear-2; y<=nowYear+2; y++){
+    const opt = document.createElement('option');
+    opt.value=y; opt.innerText=y;
+    if(y===nowYear) opt.selected=true;
+    yearSelect.appendChild(opt);
+  }
+  document.getElementById('calMonthSelect').value = new Date().getMonth();
+  yearSelect.addEventListener('change', renderCalendar);
+
+  document.getElementById('note-hopelessness').value = actNotes.hopelessness || '';
+
+  renderTasks();
+  renderCalendar();
+  renderExposureList();
+  renderLadder();
+  renderValuesArea();
+  renderReflections();
+  renderDharmaList();
+  updateUI();
+
+  document.getElementById('loadingScreen').classList.add('hidden');
+  document.getElementById('mainApp').classList.remove('hidden');
+
+  setInterval(tick, 1000);
+})();
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.innerText = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ============================================================
+   TIMER TICK
+   ============================================================ */
+function tick(){
+  checkForNewDay();
+
+  // Use real elapsed wall-clock time rather than assuming exactly 1s passed —
+  // background/minimized tabs get throttled by the browser and would
+  // otherwise silently undercount. A long gap (laptop sleep, app swapped out
+  // for minutes) is treated as a break, not credited as active time — an app
+  // built around "honest reps" shouldn't quietly hand out free minutes.
+  const now = Date.now();
+  let deltaSec = Math.round((now - lastTickAt) / 1000);
+  lastTickAt = now;
+  if(deltaSec < 1) deltaSec = 1;
+  if(deltaSec > 5){
+    const wasRunning = tasks.some(t=>t.isRunning || (t.subtasks||[]).some(s=>s.isRunning)) || escapismRunning;
+    stopAllTimers();
+    if(wasRunning) toast("Timer paused after a break — restart it if you're still on it.");
+    return;
+  }
+
+  let activeFound = false;
+  tasks.forEach(task=>{
+    if(task.isRunning){ task.elapsedSec+=deltaSec; task.dailySec[todayStr]=(task.dailySec[todayStr]||0)+deltaSec; activeFound=true; updateClockDisplay(task.name, task.elapsedSec); }
+    (task.subtasks||[]).forEach(s=>{
+      if(s.isRunning){
+        s.elapsedSec+=deltaSec;
+        s.dailySec = s.dailySec || {};
+        s.dailySec[todayStr]=(s.dailySec[todayStr]||0)+deltaSec;
+        task.elapsedSec+=deltaSec;
+        task.dailySec[todayStr]=(task.dailySec[todayStr]||0)+deltaSec;
+        activeFound=true;
+        updateClockDisplay(`${task.name} \u2014 ${s.text}`, s.elapsedSec);
+      }
+    });
+  });
+  if(escapismRunning){ escapismSec+=deltaSec; activeFound=true; updateClockDisplay('Escapism / gaming', escapismSec); }
+
+  document.getElementById('activeClockCard').classList.toggle('hidden', !activeFound);
+  if(activeFound){ recordTodayTaskProgress(); renderTasks(); updateUI(); renderTaskCalendar(); scheduleSave(); }
+}
+
+function updateClockDisplay(name, totalSec){
+  document.getElementById('activeTaskTitle').innerText = name;
+  const hrs=Math.floor(totalSec/3600), mins=Math.floor((totalSec%3600)/60), secs=totalSec%60;
+  const pad=n=>n<10?'0'+n:n;
+  document.getElementById('clockDisplay').innerHTML =
+    `${pad(hrs)}<span class="tick-dot">:</span>${pad(mins)}<span class="tick-dot">:</span>${pad(secs)}`;
+}
+
+function stopAllTimers(){
+  tasks.forEach(t=>{
+    t.isRunning=false;
+    (t.subtasks||[]).forEach(s=> s.isRunning=false);
+  });
+  escapismRunning=false;
+  document.getElementById('escapismBtn').classList.remove('active');
+  document.getElementById('escapismBtn').innerText='Track';
+  persistTrackerState();
+  renderTasks();
+}
+function toggleTaskTimer(index){
+  const cur = tasks[index].isRunning;
+  stopAllTimers();
+  tasks[index].isRunning = !cur;
+  persistTrackerState();
+  renderTasks();
+}
+function toggleSubtaskTimer(taskIndex, subId){
+  const sub = tasks[taskIndex].subtasks.find(s=>s.id===subId);
+  const cur = sub.isRunning;
+  stopAllTimers();
+  sub.isRunning = !cur;
+  persistTrackerState();
+  renderTasks();
+}
+function toggleEscapismTimer(){
+  const cur = escapismRunning;
+  stopAllTimers();
+  escapismRunning = !cur;
+  document.getElementById('escapismBtn').classList.toggle('active', escapismRunning);
+  document.getElementById('escapismBtn').innerText = escapismRunning ? 'Pause' : 'Track';
+  persistTrackerState();
+}
+function toggleTaskMenu(index){ tasks[index].showMenu = !tasks[index].showMenu; renderTasks(); }
+
+function syncScreenTime(){
+  const val = parseInt(document.getElementById('screenTimeInput').value);
+  if(!isNaN(val) && val>=0){
+    escapismSec = val*60;
+    persistTrackerState();
+    updateUI();
+    toast(`Escapism set to ${val} min`);
+  }
+}
+
+function toggleDailyExposure(){
+  exposureDoneToday = !exposureDoneToday;
+  persistTrackerState();
+  updateUI();
+}
+
+/* ============================================================
+   TASKS (subtasks only where allowSubtasks is true — Career/Research)
+   ============================================================ */
+function renderTasks(){
+  const container = document.getElementById('tasksContainer');
+  const focused = document.activeElement;
+  const focusedId = focused && focused.id ? focused.id : null;
+
+  container.innerHTML='';
+  tasks.forEach((task, index)=>{
+    const card = document.createElement('div');
+    card.className='card';
+    const mins = Math.floor(((task.dailySec && task.dailySec[todayStr]) || 0)/60);
+    const progress = calculateProgress(task);
+    const subDone = (task.subtasks||[]).filter(s=>s.done).length;
+
+    let subtaskHtml = '';
+    if(task.allowSubtasks){
+      const rows = task.subtasks.map(s =>
+        '<div class="subtask-row">' +
+          '<div class="subtask-check '+(s.done?'on':'')+'" onclick="toggleSubtask('+index+',\''+s.id+'\')"></div>' +
+          '<span class="stext '+(s.done?'done':'')+'">'+escapeHtml(s.text)+'</span>' +
+          '<span class="smins">'+Math.floor(s.elapsedSec/60)+'m</span>' +
+          '<button class="btn ghost small mini-timer-btn '+(s.isRunning?'active':'')+'" onclick="toggleSubtaskTimer('+index+',\''+s.id+'\')">'+(s.isRunning?'Pause':'Start')+'</button>' +
+          '<button class="btn ghost small" onclick="removeSubtask('+index+',\''+s.id+'\')">Remove</button>' +
+        '</div>'
+      ).join('');
+      subtaskHtml =
+        '<div class="subtask-list">'+rows+'</div>' +
+        '<div style="display:flex; gap:6px; margin-top:8px;">' +
+          '<input type="text" id="subInput-'+index+'" placeholder="Add a mini task within this..." style="flex:1; margin:0; font-size:12.5px; padding:7px 9px;" onkeydown="if(event.key===\'Enter\') addSubtask('+index+')" />' +
+          '<button class="btn ghost small" onclick="addSubtask('+index+')">Add</button>' +
+        '</div>';
+    }
+
+    const menuHtml = task.showMenu ?
+      '<div class="task-menu">' +
+        '<button class="btn ghost small" style="flex:1;" onclick="openEditTask('+index+')">Edit</button>' +
+        '<button class="btn danger small" style="flex:1;" onclick="deleteTask('+index+')">Delete</button>' +
+      '</div>' : '';
+    const miniBadge = task.allowSubtasks && task.subtasks.length ?
+      ' &middot; <span class="subtask-badge">'+subDone+'/'+task.subtasks.length+' mini tasks</span>' : '';
+
+    card.innerHTML =
+      '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+        '<div style="font-weight:600; font-size:15px; font-family:\'Fraunces\',serif;">'+escapeHtml(task.name)+'</div>' +
+        '<button class="icon-btn" aria-label="Task options" onclick="toggleTaskMenu('+index+')">\u22ef</button>' +
+      '</div>' + menuHtml +
+      '<div class="subnote" style="margin-top:6px;">Floor '+task.floor+'m &middot; Target '+task.target+'m'+miniBadge+'</div>' +
+      subtaskHtml +
+      '<div class="task-row">' +
+        '<div><span style="font-size:19px; font-weight:700; font-family:\'Fraunces\',serif;">'+mins+'</span> min ' +
+          '<span style="color:var(--moss); font-weight:600; font-size:12.5px;">('+progress+'%)</span></div>' +
+        '<button class="btn '+(task.isRunning?'active':'')+'" onclick="toggleTaskTimer('+index+')">'+(task.isRunning?'Pause':'Start')+'</button>' +
+      '</div>' +
+      '<div class="progress-bar-bg"><div class="progress-bar-fill" style="width:'+progress+'%;"></div></div>';
+    container.appendChild(card);
+  });
+
+  if(focusedId){
+    const el = document.getElementById(focusedId);
+    if(el) el.focus();
+  }
+}
+function addSubtask(index){
+  const input = document.getElementById('subInput-'+index);
+  const text = input.value.trim();
+  if(!text) return;
+  tasks[index].subtasks.push({ id:'s'+Date.now(), text, done:false, elapsedSec:0, isRunning:false, dailySec:{} });
+  input.value='';
+  persistTrackerState();
+  renderTasks();
+}
+function toggleSubtask(index, id){
+  const s = tasks[index].subtasks.find(x=>x.id===id);
+  if(s) s.done = !s.done;
+  persistTrackerState();
+  renderTasks();
+}
+function removeSubtask(index, id){
+  tasks[index].subtasks = tasks[index].subtasks.filter(x=>x.id!==id);
+  persistTrackerState();
+  renderTasks();
+}
+
+function recordTodayTaskProgress(){
+  // In-memory only — writing to persistent storage on every 1s tick was
+  // hammering window.storage while any timer ran. The actual save now rides
+  // the same debounce as everything else, in scheduleSave().
+  tasks.forEach(t=>{
+    taskHistory[t.id] = taskHistory[t.id] || {};
+    taskHistory[t.id][todayStr] = calculateProgress(t);
+  });
+}
+
+function calculateProgressForSeconds(task, seconds){
+  const mins = seconds/60;
+  if(mins < task.floor) return Math.min(50, Math.round((mins/task.floor)*50));
+  if(mins <= task.target){
+    const extra=(mins-task.floor)/(task.target-task.floor);
+    return Math.round(50+extra*50);
+  }
+  return 100;
+}
+
+function calculateProgress(task){
+  // The main task progress is time-based only. Mini-task completion never
+  // injects an automatic 50% into the parent progress bar.
+  // Uses TODAY's seconds (dailySec), not the lifetime elapsedSec counter —
+  // floor/target are daily goals, so progress must reset each day on its own
+  // rather than requiring a manual "Reset current day" click every morning.
+  return calculateProgressForSeconds(task, (task.dailySec && task.dailySec[todayStr]) || 0);
+}
+
+function getNetDailyScore(){
+  const escapismMins = Math.floor(escapismSec/60);
+  const penalty = Math.floor(escapismMins/2);
+  let sum=0; tasks.forEach(t=>sum+=calculateProgress(t));
+  const avg = tasks.length ? sum/tasks.length : 0;
+  const expBonus = (exposureDoneToday?10:0) + (exposureReps.length*5);
+  return Math.max(0, Math.min(100, Math.round(avg - penalty + expBonus)));
+}
+
+function toggleAddTaskForm(){
+  document.getElementById('editTaskId').value='';
+  document.getElementById('formTitle').innerText='Add a task';
+  document.getElementById('newTaskName').value='';
+  document.getElementById('newTaskFloor').value='15';
+  document.getElementById('newTaskTarget').value='60';
+  document.getElementById('addTaskCard').classList.toggle('hidden');
+}
+function openEditTask(index){
+  const t=tasks[index];
+  document.getElementById('editTaskId').value=index;
+  document.getElementById('formTitle').innerText='Edit task';
+  document.getElementById('newTaskName').value=t.name;
+  document.getElementById('newTaskFloor').value=t.floor;
+  document.getElementById('newTaskTarget').value=t.target;
+  document.getElementById('addTaskCard').classList.remove('hidden');
+}
+function saveTaskFromForm(){
+  const editIdx = document.getElementById('editTaskId').value;
+  const name = document.getElementById('newTaskName').value.trim();
+  const floor = parseInt(document.getElementById('newTaskFloor').value)||10;
+  const target = parseInt(document.getElementById('newTaskTarget').value)||30;
+  if(!name) return toast('Enter a task name');
+  if(editIdx!==''){
+    tasks[editIdx].name=name; tasks[editIdx].floor=floor; tasks[editIdx].target=target; tasks[editIdx].showMenu=false;
+  }else{
+    tasks.push({ id:'custom_'+Date.now(), name, floor, target, elapsedSec:0, isRunning:false, showMenu:false, allowSubtasks:false, subtasks:[], dailySec:{} });
+  }
+  document.getElementById('addTaskCard').classList.add('hidden');
+  persistTrackerState();
+  renderTasks();
+}
+function deleteTask(index){
+  if(confirm(`Remove "${tasks[index].name}"?`)){
+    tasks.splice(index,1);
+    persistTrackerState();
+    renderTasks();
+  }
+}
+
+function updateUI(){
+  const escapismMins = Math.floor(escapismSec/60);
+  const penalty = Math.floor(escapismMins/2);
+  document.getElementById('escapismTime').innerText = escapismMins;
+  document.getElementById('escapismPenalty').innerText = `(-${penalty}%)`;
+
+  const dashBtn = document.getElementById('dashExposureBtn');
+  dashBtn.classList.toggle('done', exposureDoneToday);
+  dashBtn.innerText = exposureDoneToday ? 'Done today (+10%)' : 'Not yet today';
+
+  const score = getNetDailyScore();
+  document.getElementById('ringScore').innerText = `${score}%`;
+  document.getElementById('dayRing').style.setProperty('--pct', score);
+
+  const calScore = savedHistory[selectedDate] !== undefined ? savedHistory[selectedDate] : (selectedDate===todayStr ? score : 0);
+  document.getElementById('calScoreText').innerText = `${calScore}%`;
+  document.getElementById('calScoreFill').style.width = `${calScore}%`;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ============================================================
+   CALENDAR / HISTORY
+   ============================================================ */
+function renderCalendar(){
+  const grid = document.getElementById('calendarGrid');
+  grid.innerHTML='';
+  ['S','M','T','W','T','F','S'].forEach(d=>{
+    grid.innerHTML += `<div class="cal-dow">${d}</div>`;
+  });
+
+  const month = parseInt(document.getElementById('calMonthSelect').value);
+  const year = parseInt(document.getElementById('calYearSelect').value);
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+
+  for(let i=0;i<firstDow;i++) grid.innerHTML += `<div></div>`;
+
+  for(let i=1;i<=daysInMonth;i++){
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+    let fillScore = savedHistory[dateStr] !== undefined ? savedHistory[dateStr] : (dateStr===todayStr ? getNetDailyScore() : 0);
+    const fillGradient = `conic-gradient(var(--moss) ${fillScore}%, var(--surface-2) 0)`;
+    const cls = ['day-circle'];
+    if(selectedDate===dateStr) cls.push('selected');
+    if(dateStr===todayStr) cls.push('today');
+    grid.innerHTML += `<div class="${cls.join(' ')}" style="background:${fillGradient};" onclick="selectDate('${dateStr}')">${i}</div>`;
+  }
+  renderHistoryList();
+  renderStreaks();
+  renderSparkline();
+  renderTaskCalendar();
+}
+
+function selectDate(dateStr){
+  selectedDate = dateStr;
+  document.getElementById('selectedDateTitle').innerText = dateStr===todayStr ? "Today's score" : `${dateStr} score`;
+  renderCalendar();
+  updateUI();
+}
+
+function saveDayToHistory(){
+  const score = getNetDailyScore();
+  savedHistory[todayStr] = score;
+  saveJSON('history', savedHistory);
+
+  tasks.forEach(t=>{
+    taskHistory[t.id] = taskHistory[t.id] || {};
+    taskHistory[t.id][todayStr] = calculateProgress(t);
+  });
+  saveJSON('task-history', taskHistory);
+
+  renderCalendar();
+  toast(`Saved today at ${score}%`);
+}
+
+function resetCurrentDay(){
+  if(confirm("Reset today's timers for a fresh start?")){
+    stopAllTimers();
+    tasks.forEach(t=>{ if(t.dailySec) t.dailySec[todayStr]=0; (t.subtasks||[]).forEach(s=>{if(s.dailySec) s.dailySec[todayStr]=0;}); });
+    escapismSec=0; exposureDoneToday=false; exposureReps=[];
+    persistTrackerState();
+    renderTasks(); renderExposureList(); updateUI();
+  }
+}
+
+function renderHistoryList(){
+  const list = document.getElementById('historyList');
+  const entries = Object.entries(savedHistory).sort((a,b)=> a[0]<b[0]?1:-1);
+  if(!entries.length){ list.innerHTML='No saved days yet.'; list.className='empty'; return; }
+  list.className='';
+  list.innerHTML = entries.slice(0,30).map(([date,sc])=>`
+    <div style="padding:9px 0; border-bottom:1px solid var(--line);">
+      <div style="display:flex; justify-content:space-between; font-size:13px;"><b>${date}</b><span style="color:var(--moss); font-weight:600;">${sc}%</span></div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${sc}%;"></div></div>
+    </div>
+  `).join('');
+}
+
+function renderStreaks(){
+  let streak=0;
+  let d = new Date();
+  while(true){
+    const ds = d.toISOString().split('T')[0];
+    const hit = ds===todayStr ? exposureDoneToday : exposureDaysLog.includes(ds);
+    if(!hit) break;
+    streak++;
+    d.setDate(d.getDate()-1);
+  }
+  document.getElementById('streakExposure').innerText = streak;
+
+  let sum=0, n=0;
+  for(let i=0;i<7;i++){
+    const d2 = new Date(); d2.setDate(d2.getDate()-i);
+    const ds = d2.toISOString().split('T')[0];
+    const sc = ds===todayStr ? getNetDailyScore() : savedHistory[ds];
+    if(sc!==undefined){ sum+=sc; n++; }
+  }
+  document.getElementById('streakAvg').innerText = n ? `${Math.round(sum/n)}%` : '\u2014';
+}
+
+function renderSparkline(){
+  const svg = document.getElementById('sparkline');
+  const points=[];
+  for(let i=13;i>=0;i--){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const ds = d.toISOString().split('T')[0];
+    const sc = ds===todayStr ? getNetDailyScore() : (savedHistory[ds]!==undefined ? savedHistory[ds] : null);
+    points.push(sc);
+  }
+  const w=300, h=60, n=points.length, stepX = w/(n-1);
+  let path='', dots='';
+  points.forEach((v,i)=>{
+    const val = v===null ? 0 : v;
+    const x = i*stepX;
+    const y = h - (val/100)*h;
+    path += (i===0?`M${x},${y}`:` L${x},${y}`);
+    if(v!==null) dots += `<circle cx="${x}" cy="${y}" r="2.5" fill="var(--gold)" />`;
+  });
+  svg.innerHTML = `<path d="${path}" fill="none" stroke="var(--moss)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>${dots}`;
+}
+
+function renderTaskCalendar(){
+  const sel = document.getElementById('taskCalSelect');
+  const prevVal = sel.value;
+  sel.innerHTML = tasks.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+  if(tasks.find(t=>t.id===prevVal)) sel.value = prevVal;
+
+  const grid = document.getElementById('taskCalendarGrid');
+  grid.innerHTML='';
+  ['S','M','T','W','T','F','S'].forEach(d=> grid.innerHTML += `<div class="cal-dow">${d}</div>`);
+
+  const taskId = sel.value;
+  const task = tasks.find(t=>t.id===taskId);
+  if(!task) return;
+
+  const month = parseInt(document.getElementById('calMonthSelect').value);
+  const year = parseInt(document.getElementById('calYearSelect').value);
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  for(let i=0;i<firstDow;i++) grid.innerHTML += `<div></div>`;
+
+  const hist = taskHistory[taskId] || {};
+  for(let i=1;i<=daysInMonth;i++){
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+    let dailySeconds = (task.dailySec && task.dailySec[dateStr]) || 0;
+    let pct = hist[dateStr] !== undefined ? hist[dateStr] : (dateStr===todayStr ? calculateProgressForSeconds(task, dailySeconds) : 0);
+    const fillGradient = `conic-gradient(var(--gold) ${pct}%, var(--surface-2) 0)`;
+    const cls = ['day-circle']; if(dateStr===todayStr) cls.push('today');
+    grid.innerHTML += `<div class="${cls.join(' ')}" style="background:${fillGradient};" title="${pct}%">${i}</div>`;
+  }
+}
+
+/* ============================================================
+   ACT TOOLKIT — quick practices
+   ============================================================ */
+function openQuickPractice(type){
+  if(activeQuickPractice === type){
+    activeQuickPractice = null;
+    document.getElementById('quickPracticeCard').classList.add('hidden');
+    document.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active'));
+    return;
+  }
+  activeQuickPractice = type;
+  document.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('qbtn-'+type).classList.add('active');
+  const card = document.getElementById('quickPracticeCard');
+  card.classList.remove('hidden');
+
+  if(type==='ground'){
+    card.innerHTML = `<h3>Come back to the room</h3><p class="subnote">Notice, one at a time — there's no wrong answer.</p><div id="groundStepArea" style="margin-top:10px;"></div><div class="ground-progress" id="groundProgress"></div>`;
+    startGrounding();
+  } else if(type==='breathe'){
+    card.innerHTML = `
+      <h3>Ride it out</h3>
+      <p class="subnote">Follow the orb: in on the expand, out on the contract. Let the sensation be there — you don't have to push it away.</p>
+      <div class="breath-orb-wrap">
+        <div class="breath-orb" id="breathOrb"></div>
+        <div class="breath-label" id="breathLabel"></div>
+      </div>
+      <button class="btn small block" id="breathBtn" style="margin-top:6px;" onclick="toggleBreathing()">Start</button>`;
+  } else if(type==='defuse'){
+    card.innerHTML = `
+      <h3>Loosen the thought's grip</h3>
+      <p class="subnote">The thought doesn't need to be wrong for this to work — just a little less fused to you.</p>
+      <label style="margin-top:8px; display:block;">The thought</label>
+      <input type="text" id="defuserInput" placeholder="e.g. Everyone thinks I'm boring" />
+      <label style="margin-top:8px; display:block;">Try it this way</label>
+      <select id="defuseTechnique">
+        <option value="having">"I'm having the thought that..."</option>
+        <option value="thankmind">Thank your mind</option>
+        <option value="silly">Say it in a silly voice / sing it</option>
+        <option value="leaves">Leaves on a stream</option>
+        <option value="nameit">Name the story</option>
+      </select>
+      <button class="btn small block" style="margin-top:10px;" onclick="defuseThought()">Apply</button>
+      <div id="defuserResult" class="hidden" style="margin-top:10px; padding:10px; background:var(--surface-2); border-radius:9px; font-size:13px; color:var(--text);"></div>`;
+  }
+}
+
+const DEFUSE_FRAMES = {
+  having: t => `"I'm having the thought that ${t}." Notice: that's a sentence about a thought, not the thought treated as fact.`,
+  thankmind: t => `"Thanks, mind, for that one — the '${t}' thought again." You're acknowledging it arrived without adopting it.`,
+  silly: t => `Try saying "${t}" out loud in the voice of a cartoon character, or singing it to a tune you know. The words stay the same; the weight drops.`,
+  leaves: t => `Picture a stream. Place the thought "${t}" on a leaf and watch it float past — you're on the bank, not in the water.`,
+  nameit: t => `Give the pattern a name: "Ah, there's the '${t}' story again." Naming it as a familiar story creates a little distance.`
+};
+function defuseThought(){
+  const input = document.getElementById('defuserInput').value.trim();
+  if(!input) return toast('Enter a thought first');
+  const technique = document.getElementById('defuseTechnique').value;
+  const res = document.getElementById('defuserResult');
+  res.classList.remove('hidden');
+  res.innerText = DEFUSE_FRAMES[technique](input);
+}
+
+let breathing = false, breathTimeout = null;
+function toggleBreathing(){
+  breathing = !breathing;
+  const btn = document.getElementById('breathBtn');
+  if(breathing){
+    btn.innerText = 'Stop';
+    breathCycle();
+  }else{
+    btn.innerText = 'Start';
+    clearTimeout(breathTimeout);
+    const orb = document.getElementById('breathOrb');
+    if(orb) orb.style.transform='scale(1)';
+    const label = document.getElementById('breathLabel');
+    if(label) label.innerText='';
+  }
+}
+function breathCycle(){
+  if(!breathing) return;
+  const orb = document.getElementById('breathOrb');
+  const label = document.getElementById('breathLabel');
+  if(!orb) { breathing=false; return; }
+  orb.style.transform='scale(1.45)';
+  label.innerText='Breathe in...';
+  breathTimeout = setTimeout(()=>{
+    if(!breathing) return;
+    orb.style.transform='scale(1)';
+    label.innerText='Breathe out...';
+    breathTimeout = setTimeout(breathCycle, 4000);
+  }, 4000);
+}
+
+const GROUND_PROMPTS = [
+  { label:'5 things you can see', id:'see' },
+  { label:'4 things you can feel touching you', id:'feel' },
+  { label:'3 things you can hear', id:'hear' },
+  { label:'2 things you can smell', id:'smell' },
+  { label:'1 thing you appreciate about right now', id:'app' }
+];
+let groundStep = 0;
+function startGrounding(){
+  groundStep = 0;
+  renderGroundStep();
+}
+function renderGroundStep(){
+  const area = document.getElementById('groundStepArea');
+  const prog = document.getElementById('groundProgress');
+  if(!area) return;
+  prog.innerHTML = GROUND_PROMPTS.map((_,i)=>`<span class="${i<groundStep?'done':''}"></span>`).join('');
+  if(groundStep >= GROUND_PROMPTS.length){
+    area.innerHTML = `<p class="ground-step">Grounded. Whenever you're ready, carry that into the next step.</p>`;
+    return;
+  }
+  const p = GROUND_PROMPTS[groundStep];
+  area.innerHTML = `
+    <div class="ground-step">${p.label}</div>
+    <input type="text" id="groundInput" placeholder="Type it, then continue" />
+    <button class="btn small" style="margin-top:8px;" onclick="nextGroundStep()">Next</button>`;
+}
+function nextGroundStep(){ groundStep++; renderGroundStep(); }
+
+/* ---- Values compass ---- */
+function renderValuesArea(){
+  const area = document.getElementById('valuesArea');
+  const domains = ['Career','Connection','Health','Growth','Creativity','Contribution'];
+  area.innerHTML = domains.map(d=>`
+    <div class="value-row">
+      <div class="vlabel"><b>${d}</b><span id="vval-${d}">${values[d]}</span></div>
+      <input type="range" min="1" max="10" value="${values[d]}" oninput="updateValueSlider('${d}', this.value)" />
+    </div>`).join('') + `
+    <label style="margin-top:12px; display:block;">Today's values-aligned intention</label>
+    <input type="text" id="valueIntention" value="${escapeHtml(values.intention||'')}" placeholder="e.g. Speak up once in standup" />
+    <button class="btn small" style="margin-top:8px;" onclick="saveValues()">Save</button>`;
+}
+function updateValueSlider(domain, val){
+  values[domain] = parseInt(val);
+  document.getElementById('vval-'+domain).innerText = val;
+}
+function saveValues(){
+  values.intention = document.getElementById('valueIntention').value;
+  persistTrackerState();
+  toast('Values saved');
+}
+
+function saveActNote(id){
+  actNotes[id] = document.getElementById('note-'+id).value;
+  persistTrackerState();
+  toast('Saved');
+}
+
+function toggleReference(){
+  const box = document.getElementById('referenceBox');
+  if(box.classList.contains('hidden')){
+    box.innerHTML = `<p class="guide-intro"><strong>How to use this when you're stuck:</strong> Don't try to solve everything at once. First notice what is happening, then loosen the struggle with it, reconnect with the present, identify what matters, and finally take one small action in that direction. The goal is not to feel ready or eliminate anxiety; the goal is to respond more deliberately.</p>
+    <div class="card" style="margin:8px 0 4px; padding:12px; background:var(--bg-soft);"><div class="glabel" style="margin-top:0;">A simple reset sequence</div><ol style="margin:4px 0 0; padding-left:20px;"><li class="guide-step-inline">Name what is happening right now.</li><li class="guide-step-inline">Notice the thought, feeling, or body sensation without arguing with it.</li><li class="guide-step-inline">Ask what you have been doing to control or avoid it, and whether that strategy is workable.</li><li class="guide-step-inline">Return attention to the present moment.</li><li class="guide-step-inline">Ask: <em>What kind of person do I want to be in this situation?</em></li><li class="guide-step-inline">Choose one small action that expresses that value, even with discomfort present.</li></ol></div>` +
+    REFERENCE.map((r,i)=>`
+      <div class="guide-step">
+        <div class="guide-num">${i+1}</div>
+        <div>
+          <h4>${r.title}</h4>
+          <p style="color:var(--faint); font-size:11.5px; margin-bottom:4px;">${r.sub}</p>
+          <p>${r.what}</p>
+          <div class="glabel">Why it matters</div>
+          <p>${r.why}</p>
+          <div class="glabel">How to actually do it</div>
+          <ul>${r.how.map(step=>`<li>${step}</li>`).join('')}</ul>
+          <div class="glabel">Common trap</div>
+          <p>${r.trap}</p>
+        </div>
+      </div>`).join('');
+    box.classList.remove('hidden');
+  }else{
+    box.classList.add('hidden');
+  }
+}
+
+/* ---- Exposure hierarchy ladder ---- */
+function addLadderItem(){
+  const text = document.getElementById('ladderText').value.trim();
+  const diff = Math.max(1, Math.min(10, parseInt(document.getElementById('ladderDiff').value)||5));
+  if(!text) return toast('Describe the situation first');
+  hierarchy.push({ id:'r'+Date.now(), text, diff, done:false });
+  hierarchy.sort((a,b)=>a.diff-b.diff);
+  document.getElementById('ladderText').value='';
+  persistTrackerState();
+  renderLadder();
+}
+function toggleLadderItem(id){
+  const item = hierarchy.find(h=>h.id===id);
+  if(item) item.done = !item.done;
+  persistTrackerState();
+  renderLadder();
+}
+function removeLadderItem(id){
+  hierarchy = hierarchy.filter(h=>h.id!==id);
+  persistTrackerState();
+  renderLadder();
+}
+function renderLadder(){
+  const list = document.getElementById('ladderList');
+  if(!hierarchy.length){ list.innerHTML = '<div class="empty">No rungs yet — add your first situation above.</div>'; return; }
+  list.innerHTML = hierarchy.map(h=>`
+    <div class="ladder-row">
+      <div class="ladder-diff">${h.diff}</div>
+      <div class="ladder-text ${h.done?'done':''}">${escapeHtml(h.text)}</div>
+      <div class="ladder-check ${h.done?'on':''}" onclick="toggleLadderItem('${h.id}')"></div>
+      <button class="icon-btn" style="font-size:15px;" onclick="removeLadderItem('${h.id}')">\u00d7</button>
+    </div>
+  `).join('');
+}
+
+/* ---- Exposure log ---- */
+function saveExposureRep(){
+  const trigger = document.getElementById('expTrigger').value.trim();
+  const pre = document.getElementById('preAnxiety').value;
+  const post = document.getElementById('postAnxiety').value;
+  const droppedSafety = document.getElementById('droppedSafetyCheck').checked;
+  const defusion = document.getElementById('defusionNote').value.trim();
+  if(!trigger) return toast('Describe what you did');
+
+  exposureReps.push({ trigger, pre, post, droppedSafety, defusion });
+  exposureDoneToday = true;
+  if(!exposureDaysLog.includes(todayStr)) exposureDaysLog.push(todayStr);
+
+  document.getElementById('expTrigger').value='';
+  document.getElementById('defusionNote').value='';
+  document.getElementById('droppedSafetyCheck').checked=false;
+
+  persistTrackerState();
+  renderExposureList();
+  updateUI();
+  toast('Exposure logged (+10%)');
+}
+function renderExposureList(){
+  const list = document.getElementById('exposureList');
+  if(!exposureReps.length){ list.innerHTML='None logged today.'; list.className='empty'; return; }
+  list.className='';
+  list.innerHTML = exposureReps.map(r=>`
+    <div class="exp-item">
+      <b>${escapeHtml(r.trigger)}</b>
+      <div class="meta">Anxiety ${r.pre}/10 \u2192 ${r.post}/10 ${r.droppedSafety?'<span class="tag">&middot; safety behaviors dropped</span>':''}</div>
+      ${r.defusion ? `<div class="note">"${escapeHtml(r.defusion)}"</div>` : ''}
+    </div>
+  `).join('');
+}
+
+/* ============================================================
+   REFLECTION
+   ============================================================ */
+function saveReflection(){
+  const note = document.getElementById('misjudgmentNote').value.trim();
+  if(!note) return toast('Write something first');
+  reflections[todayStr] = note;
+  saveJSON('reflections', reflections);
+  document.getElementById('misjudgmentNote').value='';
+  renderReflections();
+  toast('Reflection saved');
+}
+function renderReflections(){
+  const list = document.getElementById('reflectionList');
+  const entries = Object.entries(reflections).sort((a,b)=>a[0]<b[0]?1:-1);
+  if(!entries.length){ list.innerHTML='Nothing written yet.'; list.className='empty'; return; }
+  list.className='';
+  list.innerHTML = entries.slice(0,20).map(([date,note])=>`
+    <div style="padding:9px 0; border-bottom:1px solid var(--line);">
+      <div style="font-size:12px; color:var(--faint); margin-bottom:2px;">${date}</div>
+      <div style="font-size:13px; color:var(--text);">${escapeHtml(note)}</div>
+    </div>
+  `).join('');
+}
+
+/* ---- Dharma reflection ---- */
+
+function dharmaMeditate(btn){
+  btn.classList.toggle('active');
+  btn.querySelector('span:last-child').innerText = btn.classList.contains('active') ? 'Sitting…' : 'Pause & sit';
+  toast(btn.classList.contains('active') ? 'Take a quiet minute.' : 'Meditation paused.');
+}
+
+function saveDharma(){
+  const concept = document.getElementById('dharmaConcept').value.trim();
+  const note = document.getElementById('dharmaNote').value.trim();
+  if(!note) return toast('Write what you noticed');
+  dharmaLog.unshift({ date: todayStr, concept, note });
+  saveJSON('dharma-log', dharmaLog);
+  document.getElementById('dharmaConcept').value='';
+  document.getElementById('dharmaNote').value='';
+  renderDharmaList();
+  toast('Saved');
+}
+function renderDharmaList(){
+  const list = document.getElementById('dharmaList');
+  if(!dharmaLog.length){ list.innerHTML='Nothing written yet.'; list.className='empty'; return; }
+  list.className='';
+  list.innerHTML = dharmaLog.slice(0,20).map(e=>`
+    <div class="dharma-item">
+      ${e.concept ? `<div class="concept">${escapeHtml(e.concept)}</div>` : ''}
+      <div class="note">${escapeHtml(e.note)}</div>
+      <div class="date">${e.date}</div>
+    </div>
+  `).join('');
+}
+
+/* ============================================================
+   TABS
+   ============================================================ */
+function showTab(tabId, btn){
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById(tabId).classList.remove('hidden');
+  btn.classList.add('active');
+}
+
+window.addEventListener('beforeunload', persistTrackerState);
+// beforeunload is unreliable on mobile (apps get swapped away without it
+// firing) — visibilitychange fires whenever the tab/app is backgrounded and
+// is the more trustworthy save point.
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'hidden'){
+    persistTrackerState();
+    saveJSON('task-history', taskHistory);
+  }
+});
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{ /* fine if this file isn't hosted with a service worker available */ });
+  });
+}
+</script>
+</body>
+</html>
