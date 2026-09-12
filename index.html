@@ -106,8 +106,8 @@
 
   .escapism-card{ border-color: var(--clay-dim); }
 
-  #ambientPlayerHost{ margin-top:10px; }
-  #ambientPlayerHost iframe{ width:100%; aspect-ratio:16/9; border:0; border-radius: var(--radius-md); display:block; }
+  #ambientPlayerHost{ position:absolute; width:1px; height:1px; overflow:hidden; left:-9999px; top:-9999px; }
+  #ambientPlayerHost iframe{ width:1px; height:1px; border:0; }
 
   .sound-row{ display:flex; align-items:center; gap:6px; padding:7px 0; border-bottom:1px solid var(--line); }
   .sound-row:last-child{ border-bottom:none; }
@@ -1138,12 +1138,29 @@ function toggleDailyExposure(){
 }
 
 /* ============================================================
-   AMBIENT SOUND — plays either a looping YouTube video, embedded
-   directly below the controls, or a direct audio file link (via a
-   plain HTML5 <audio> element).
+   AMBIENT SOUND — plays either a looping YouTube video (audio only,
+   via the YouTube IFrame Player API) or a direct audio file link
+   (via a plain HTML5 <audio> element).
    ============================================================ */
+let ytPlayer = null;
+let ytApiLoading = false;
+let ytApiCallbacks = [];
 let htmlAudio = null; // the <audio> element used for direct-file sounds
 let ambientPlaying = false;
+
+function loadYouTubeAPI(cb){
+  if(window.YT && window.YT.Player){ cb(); return; }
+  ytApiCallbacks.push(cb);
+  if(ytApiLoading) return;
+  ytApiLoading = true;
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+  window.onYouTubeIframeAPIReady = function(){
+    ytApiCallbacks.forEach(fn=>fn());
+    ytApiCallbacks = [];
+  };
+}
 
 function extractYouTubeId(input){
   if(!input) return null;
@@ -1186,7 +1203,7 @@ function onAmbientPresetChange(){
 
 function toggleAmbientPlayback(){
   if(ambientPlaying){
-    if(armedKind==='yt') stopYouTubePlayer();
+    if(armedKind==='yt' && ytPlayer) ytPlayer.pauseVideo();
     if(armedKind==='audio' && htmlAudio) htmlAudio.pause();
     ambientPlaying = false;
     document.getElementById('ambientPlayBtn').innerText = 'Play';
@@ -1196,26 +1213,40 @@ function toggleAmbientPlayback(){
   }
   if(!armedSrc){ toast('Pick a sound first'); return; }
   if(armedKind==='audio') startDirectAudioPlayer(armedSrc);
-  else startYouTubePlayer(armedSrc);
+  else loadYouTubeAPI(()=>startYouTubePlayer(armedSrc));
 }
 
 function startYouTubePlayer(videoId){
   if(htmlAudio) htmlAudio.pause(); // stop any direct-file sound before switching
+  if(ytPlayer && ytPlayer.loadVideoById){
+    ytPlayer.loadVideoById(videoId);
+    ambientPlaying = true;
+    document.getElementById('ambientPlayBtn').innerText = 'Pause';
+    updateNowPlaying();
+    renderSoundList();
+    return;
+  }
   const host = document.getElementById('ambientPlayerHost');
-  host.innerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&loop=1&playlist=${encodeURIComponent(videoId)}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-  ambientPlaying = true;
-  document.getElementById('ambientPlayBtn').innerText = 'Pause';
-  updateNowPlaying();
-  renderSoundList();
-}
-
-function stopYouTubePlayer(){
-  const host = document.getElementById('ambientPlayerHost');
-  if(host) host.innerHTML = '';
+  host.innerHTML = '<div id="ytPlayerDiv"></div>';
+  ytPlayer = new YT.Player('ytPlayerDiv', {
+    videoId: videoId,
+    playerVars: { autoplay:1, playsinline:1 },
+    events: {
+      onReady: (e)=>{
+        e.target.setVolume(parseInt(document.getElementById('ambientVolume').value)||60);
+        e.target.playVideo();
+        ambientPlaying = true;
+        document.getElementById('ambientPlayBtn').innerText = 'Pause';
+        updateNowPlaying();
+        renderSoundList();
+      },
+      onError: ()=> toast('That video could not be played — try another link, or a direct audio file link instead.')
+    }
+  });
 }
 
 function startDirectAudioPlayer(url){
-  stopYouTubePlayer(); // stop any YouTube video before switching
+  if(ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo(); // stop any YouTube sound before switching
   if(!htmlAudio){
     htmlAudio = new Audio();
     htmlAudio.loop = true;
@@ -1237,13 +1268,14 @@ function startDirectAudioPlayer(url){
 }
 
 function setAmbientVolume(v){
+  if(armedKind==='yt' && ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(parseInt(v));
   if(armedKind==='audio' && htmlAudio) htmlAudio.volume = parseInt(v)/100;
 }
 
 function updateNowPlaying(){
   const el = document.getElementById('ambientNowPlaying');
   if(!el) return;
-  el.innerText = armedLabel ? (ambientPlaying ? `Now playing: ${armedLabel}` : `Ready: ${armedLabel}`) : '';
+  el.innerText = armedLabel ? (ambientPlaying ? `Now playing (audio only): ${armedLabel}` : `Ready: ${armedLabel}`) : '';
 }
 
 /* ---- Custom sound list: editable / deletable ---- */
@@ -1304,7 +1336,7 @@ function playCustomSound(id){
   document.getElementById('ambientPreset').value = '';
   document.getElementById('ambientPlayBtn').disabled = false;
   if(kind==='audio') startDirectAudioPlayer(src);
-  else startYouTubePlayer(src);
+  else loadYouTubeAPI(()=>startYouTubePlayer(src));
 }
 function renderSoundList(){
   const list = document.getElementById('soundList');
