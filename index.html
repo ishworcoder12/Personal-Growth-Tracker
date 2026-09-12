@@ -54,6 +54,7 @@
   .app-header h1{ font-size: 26px; letter-spacing: -0.01em; }
   .app-header .leafmark{ font-size:18px; }
   .app-header .tagline{ color:var(--subtext); font-size:13px; margin-top:3px; font-family:'Fraunces',serif; font-style:italic; }
+  .app-header .live-time{ color:var(--moss); font-size:12px; margin-top:5px; font-variant-numeric: tabular-nums; letter-spacing:0.02em; }
 
   .tab-nav{ display:flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
   .tab-btn{ flex:1; background:none; border:none; color:var(--faint); font-family:'Inter'; font-weight:600; font-size:13px; padding: 10px 2px 12px; cursor:pointer; position:relative; transition: color .15s ease; }
@@ -104,6 +105,9 @@
 
   .escapism-card{ border-color: var(--clay-dim); }
 
+  #ambientPlayerHost iframe{ width:100%; height:150px; border:0; border-radius: var(--radius-md); display:block; }
+  #ambientPlayerHost:empty{ display:none; }
+
   input, textarea, select{ width:100%; background: var(--bg-soft); border:1px solid var(--line); color:var(--text); padding:9px 10px; border-radius: var(--radius-sm); margin-top:6px; box-sizing:border-box; font-family:'Inter'; font-size:13.5px; }
   input:focus, textarea:focus, select:focus{ outline:2px solid var(--moss-dim); outline-offset:1px; }
   label{ font-size:12px; color:var(--subtext); }
@@ -134,7 +138,7 @@
   .subtask-badge{ font-size:11px; color:var(--gold); font-weight:600; }
 
   /* ACT quick grid */
-  .quick-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:8px; margin-top:6px; }
+  .quick-grid{ display:grid; grid-template-columns: repeat(4,1fr); gap:6px; margin-top:6px; }
   .quick-btn{ background:var(--surface); border:1px solid var(--line); border-radius: var(--radius-md); padding:14px 6px; display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; color:var(--text); }
   .quick-btn .ic{ font-size:22px; }
   .quick-btn span{ font-size:11.5px; font-weight:600; text-align:center; }
@@ -218,6 +222,7 @@
   <div class="app-header">
     <div class="brand"><span class="leafmark">🌱</span><h1>Growth & ACT</h1></div>
     <div class="tagline">Small, honest reps — not a perfect streak.</div>
+    <div class="live-time" id="liveClock">--:--:--</div>
   </div>
 
   <div class="tab-nav">
@@ -245,6 +250,34 @@
         <div style="flex:1;">
           <h3>Today's execution</h3>
         </div>
+      </div>
+    </div>
+
+    <div class="card" id="ambientCard">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>Ambient sound</h3>
+        <button class="icon-btn" aria-label="Toggle ambient sound panel" onclick="toggleAmbientPanel()">⋯</button>
+      </div>
+      <p class="subnote" id="ambientSubnote">Plays from YouTube in the background while you work — needs an internet connection.</p>
+      <div id="ambientPanel">
+        <select id="ambientPreset" onchange="onAmbientPresetChange()">
+          <option value="">Choose a preset…</option>
+          <option value="8plwv25NYRo">Rain on a forest (10h)</option>
+          <option value="BSmYxnvUDHw">Rain + distant thunder (10h)</option>
+          <option value="uAwdL-iEydI">Ocean waves (10h)</option>
+          <option value="gaGrHUekGrc">Coffee shop chatter (loop)</option>
+          <option value="jfKfPfyJRdk">Lofi hip-hop radio (24/7 live)</option>
+          <option value="custom">Custom YouTube link / video ID…</option>
+        </select>
+        <div id="ambientCustomRow" class="hidden" style="margin-top:8px;">
+          <input type="text" id="ambientCustomInput" placeholder="Paste a YouTube link or video ID" />
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
+          <button class="btn small" id="ambientPlayBtn" onclick="toggleAmbientPlayback()" disabled>Play</button>
+          <input type="range" id="ambientVolume" min="0" max="100" value="60" oninput="setAmbientVolume(this.value)" style="flex:1; margin-top:0;" />
+        </div>
+        <div id="ambientPlayerHost" style="margin-top:10px; border-radius:var(--radius-md); overflow:hidden;"></div>
+        <p class="subnote" style="margin-top:8px;">Runs in a small YouTube player inside the page. Like the timers, most phones suspend it once the screen locks — see the note in chat about why that happens and how to reduce it.</p>
       </div>
     </div>
 
@@ -360,6 +393,7 @@
       <button class="quick-btn" id="qbtn-ground" onclick="openQuickPractice('ground')"><span class="ic">🌿</span><span>Ground</span></button>
       <button class="quick-btn" id="qbtn-breathe" onclick="openQuickPractice('breathe')"><span class="ic">🌊</span><span>Breathe</span></button>
       <button class="quick-btn" id="qbtn-defuse" onclick="openQuickPractice('defuse')"><span class="ic">🍃</span><span>Unhook a thought</span></button>
+      <button class="quick-btn" id="qbtn-observer" onclick="openQuickPractice('observer')"><span class="ic">🪞</span><span>Step back</span></button>
     </div>
     <div class="card hidden" id="quickPracticeCard"></div>
 
@@ -520,7 +554,13 @@ function scheduleSave(){
 async function persistTrackerState(){
   await saveJSON('tracker-state', {
     tasks, escapismSec, exposureDoneToday, exposureReps,
-    values, hierarchy, actNotes, exposureDaysLog
+    values, hierarchy, actNotes, exposureDaysLog,
+    // Which timer (if any) is running and the wall-clock timestamp it started
+    // running at. Saved immediately on every start/stop so that if the app
+    // process itself gets killed while the screen is locked (common for
+    // WebView-wrapped APKs), the next launch can credit the real elapsed
+    // time instead of just losing it or freezing the display.
+    activeRun: activeRunKey ? { key: activeRunKey, since: activeRunSince } : null
   });
 }
 
@@ -557,6 +597,74 @@ let todayStr = localDateStr();
 let selectedDate = todayStr;
 let activeQuickPractice = null;
 let lastTickAt = Date.now();
+
+// Identifies whatever timer is currently running ('task:<id>', 'sub:<taskId>:<subId>',
+// or 'escapism') plus the timestamp it started, so a break in JS execution
+// (screen lock, throttled background tab, or the app process being killed
+// outright) can be measured in real wall-clock time and credited correctly
+// on resume, rather than the clock silently going stale or getting wiped.
+let activeRunKey = null;
+let activeRunSince = null;
+// A locked/backgrounded run longer than this is treated as "forgotten
+// running", not an honest continuous session — credited up to the cap, then
+// stopped, rather than handing out unlimited minutes. Raise or lower to
+// taste; 90 minutes covers a typical study/workout/meditation block done
+// with the phone locked in a pocket.
+const MAX_CONTINUOUS_GAP_SEC = 90 * 60;
+
+function setActiveRun(key){
+  activeRunKey = key;
+  activeRunSince = key ? Date.now() : null;
+}
+
+// Runs once on load if the app was closed (or the process was killed by the
+// OS, which happens to WebView-wrapped APKs while the screen is locked)
+// while a timer was still marked running. Credits the real wall-clock time
+// that passed, then resumes that same timer — so locking the phone mid-task
+// no longer means losing the time or having to notice and restart it.
+function resumeActiveRun(run){
+  if(!run || !run.key || !run.since) return;
+  // If the gap crossed midnight, don't guess how to split the credit across
+  // two different days — safer to just drop it than misattribute it.
+  if(localDateStr(new Date(run.since)) !== todayStr){ return; }
+
+  const gapSec = Math.max(0, Math.round((Date.now() - run.since) / 1000));
+  const credited = Math.min(gapSec, MAX_CONTINUOUS_GAP_SEC);
+  const overCap = gapSec > MAX_CONTINUOUS_GAP_SEC;
+  if(credited <= 0) return;
+
+  let resumed = false;
+  if(run.key === 'escapism'){
+    escapismSec += credited;
+    if(!overCap){ escapismRunning = true; resumed = true; }
+  } else if(run.key.startsWith('task:')){
+    const t = tasks.find(x => x.id === run.key.slice(5));
+    if(t){
+      t.elapsedSec += credited;
+      t.dailySec[todayStr] = (t.dailySec[todayStr] || 0) + credited;
+      if(!overCap){ t.isRunning = true; resumed = true; }
+    }
+  } else if(run.key.startsWith('sub:')){
+    const [, taskId, subId] = run.key.split(':');
+    const t = tasks.find(x => x.id === taskId);
+    const s = t && t.subtasks.find(x => x.id === subId);
+    if(t && s){
+      s.elapsedSec += credited;
+      s.dailySec = s.dailySec || {};
+      s.dailySec[todayStr] = (s.dailySec[todayStr] || 0) + credited;
+      t.elapsedSec += credited;
+      t.dailySec[todayStr] = (t.dailySec[todayStr] || 0) + credited;
+      if(!overCap){ s.isRunning = true; resumed = true; }
+    }
+  }
+
+  toast(overCap
+    ? `Credited ${Math.floor(credited/60)}m from before you closed the app, then paused \u2014 that was a long gap, check it's right.`
+    : `Welcome back \u2014 credited ${Math.floor(credited/60)}m and kept the timer running.`);
+
+  if(resumed){ setActiveRun(run.key); lastTickAt = Date.now(); requestWakeLock(); }
+  else { setActiveRun(null); persistTrackerState(); }
+}
 
 // Called every tick so a tab left open across midnight rolls over on its own,
 // instead of silently carrying yesterday's clock totals into a new day.
@@ -609,6 +717,17 @@ const REFERENCE = [
     trap:'Defusion isn\u2019t a debate club \u2014 you\u2019re not trying to prove the thought wrong. Arguing with it usually feeds it. You\u2019re just changing your relationship to it.'
   },
   {
+    title:'Self-as-context', sub:'The noticer isn\u2019t the anxiety',
+    what:'One of the six core ACT processes, sometimes left out of simpler summaries: there\u2019s a difference between the content of your experience (the nervous thought, the racing heart, the story "I\u2019m awkward") and the part of you that notices all of it. That noticing perspective \u2014 sometimes called the observer self \u2014 doesn\u2019t change when the content changes.',
+    why:'Social anxiety often fuses you with the content ("I am anxious," "I am the awkward one"). Self-as-context gives you a stable vantage point that was never actually anxious or awkward in the first place \u2014 it was just watching. That\u2019s somewhere steadier to act from than the content itself.',
+    how:[
+      'Use the Step back tool above when a social-evaluation thought is loud.',
+      'Notice the gap between "I\u2019m having the thought that they think I\u2019m weird" and the part of you simply observing that thought arrive.',
+      'Act from that observing vantage point \u2014 it can hold the discomfort without needing to resolve it first.'
+    ],
+    trap:'This isn\u2019t dissociation or "not caring." You\u2019re not trying to float above your life \u2014 you\u2019re finding a steadier place inside it to act from.'
+  },
+  {
     title:'Body expansion & acceptance', sub:'Make room for the sensation',
     what:'Anxiety shows up physically first \u2014 tight chest, racing pulse, shallow breath. Acceptance here means breathing into that sensation and letting it be there, rather than bracing against it or trying to force it out.',
     why:'Fighting a sensation usually amplifies it and adds a second layer of struggle on top of the first. Willingness doesn\u2019t make the sensation vanish \u2014 it just stops the fight that was making it worse.',
@@ -659,6 +778,7 @@ const REFERENCE = [
    ============================================================ */
 (async function init(){
   const ts = await loadJSON('tracker-state', null);
+  let savedActiveRun = null;
   if(ts){
     tasks = (ts.tasks || defaultTasks).map(t => ({ subtasks:[], allowSubtasks:false, dailySec:{}, ...t, allowSubtasks:(t.id==='career') }));
     escapismSec = ts.escapismSec || 0;
@@ -668,6 +788,7 @@ const REFERENCE = [
     hierarchy = ts.hierarchy || [];
     actNotes = ts.actNotes || {};
     exposureDaysLog = ts.exposureDaysLog || [];
+    savedActiveRun = ts.activeRun || null;
   }
   savedHistory = await loadJSON('history', {});
   taskHistory = await loadJSON('task-history', {});
@@ -681,6 +802,8 @@ const REFERENCE = [
     t.subtasks.forEach(s=>{ s.isRunning=false; if(s.elapsedSec===undefined) s.elapsedSec=0; if(!s.dailySec) s.dailySec={}; });
   });
   escapismRunning = false;
+
+  if(savedActiveRun) resumeActiveRun(savedActiveRun);
 
   const yearSelect = document.getElementById('calYearSelect');
   const nowYear = new Date().getFullYear();
@@ -707,6 +830,7 @@ const REFERENCE = [
   document.getElementById('loadingScreen').classList.add('hidden');
   document.getElementById('mainApp').classList.remove('hidden');
 
+  updateLiveClock();
   setInterval(tick, 1000);
 })();
 
@@ -719,30 +843,60 @@ function toast(msg){
 }
 
 /* ============================================================
+   WAKE LOCK — asks the OS not to auto-dim/lock the screen while a
+   timer is running, so the tab is less likely to be throttled or
+   killed. This only prevents automatic sleep from inactivity; it
+   cannot stop someone from pressing the physical power button, and
+   a wrapped APK's WebView can still be suspended by the OS — see
+   the chat notes on the limits of background execution here.
+   ============================================================ */
+let wakeLock = null;
+async function requestWakeLock(){
+  try{
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', ()=>{ wakeLock = null; });
+    }
+  }catch(e){ /* not supported, or permission denied — fine, just no-op */ }
+}
+function releaseWakeLock(){
+  if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; }
+}
+// Wake locks are auto-released whenever the tab is hidden, so re-request
+// as soon as it's visible again if a timer is still supposed to be running.
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && activeRunKey){
+    requestWakeLock();
+  }
+});
+
+/* ============================================================
    TIMER TICK
    ============================================================ */
 function tick(){
   checkForNewDay();
+  updateLiveClock();
 
   // Use real elapsed wall-clock time rather than assuming exactly 1s passed —
   // background/minimized tabs get throttled by the browser and would
-  // otherwise silently undercount. A long gap (laptop sleep, app swapped out
-  // for minutes) is treated as a break, not credited as active time — an app
-  // built around "honest reps" shouldn't quietly hand out free minutes.
+  // otherwise silently undercount. Unlike before, a gap here (screen locked,
+  // app backgrounded) is credited as real time up to MAX_CONTINUOUS_GAP_SEC —
+  // only a gap longer than that is treated as "forgotten running" and capped.
   const now = Date.now();
   let deltaSec = Math.round((now - lastTickAt) / 1000);
   lastTickAt = now;
   if(deltaSec < 1) deltaSec = 1;
-  if(deltaSec > 5){
-    const wasRunning = tasks.some(t=>t.isRunning || (t.subtasks||[]).some(s=>s.isRunning)) || escapismRunning;
-    stopAllTimers();
-    if(wasRunning) toast("Timer paused after a break — restart it if you're still on it.");
-    return;
-  }
+  let overCap = false;
+  if(deltaSec > MAX_CONTINUOUS_GAP_SEC){ deltaSec = MAX_CONTINUOUS_GAP_SEC; overCap = true; }
 
   let activeFound = false;
   tasks.forEach(task=>{
-    if(task.isRunning){ task.elapsedSec+=deltaSec; task.dailySec[todayStr]=(task.dailySec[todayStr]||0)+deltaSec; activeFound=true; updateClockDisplay(task.name, task.elapsedSec); }
+    if(task.isRunning){
+      task.elapsedSec+=deltaSec;
+      task.dailySec[todayStr]=(task.dailySec[todayStr]||0)+deltaSec;
+      activeFound=true;
+      updateClockDisplay(task.name, task.dailySec[todayStr]);
+    }
     (task.subtasks||[]).forEach(s=>{
       if(s.isRunning){
         s.elapsedSec+=deltaSec;
@@ -751,14 +905,25 @@ function tick(){
         task.elapsedSec+=deltaSec;
         task.dailySec[todayStr]=(task.dailySec[todayStr]||0)+deltaSec;
         activeFound=true;
-        updateClockDisplay(`${task.name} \u2014 ${s.text}`, s.elapsedSec);
+        updateClockDisplay(`${task.name} \u2014 ${s.text}`, s.dailySec[todayStr]);
       }
     });
   });
   if(escapismRunning){ escapismSec+=deltaSec; activeFound=true; updateClockDisplay('Escapism / gaming', escapismSec); }
 
+  if(overCap && activeFound){
+    stopAllTimers();
+    toast(`Credited ${Math.floor(deltaSec/60)}m after a long gap, then paused \u2014 make sure that still looks right.`);
+  }
+
   document.getElementById('activeClockCard').classList.toggle('hidden', !activeFound);
   if(activeFound){ recordTodayTaskProgress(); renderTasks(); updateUI(); renderTaskCalendar(); scheduleSave(); }
+}
+
+function updateLiveClock(){
+  const el = document.getElementById('liveClock');
+  if(!el) return;
+  el.innerText = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
 }
 
 function updateClockDisplay(name, totalSec){
@@ -775,6 +940,8 @@ function stopAllTimers(){
     (t.subtasks||[]).forEach(s=> s.isRunning=false);
   });
   escapismRunning=false;
+  setActiveRun(null);
+  releaseWakeLock();
   document.getElementById('escapismBtn').classList.remove('active');
   document.getElementById('escapismBtn').innerText='Track';
   persistTrackerState();
@@ -784,6 +951,7 @@ function toggleTaskTimer(index){
   const cur = tasks[index].isRunning;
   stopAllTimers();
   tasks[index].isRunning = !cur;
+  if(!cur){ setActiveRun('task:'+tasks[index].id); requestWakeLock(); }
   persistTrackerState();
   renderTasks();
 }
@@ -792,6 +960,7 @@ function toggleSubtaskTimer(taskIndex, subId){
   const cur = sub.isRunning;
   stopAllTimers();
   sub.isRunning = !cur;
+  if(!cur){ setActiveRun('sub:'+tasks[taskIndex].id+':'+subId); requestWakeLock(); }
   persistTrackerState();
   renderTasks();
 }
@@ -799,6 +968,7 @@ function toggleEscapismTimer(){
   const cur = escapismRunning;
   stopAllTimers();
   escapismRunning = !cur;
+  if(!cur){ setActiveRun('escapism'); requestWakeLock(); }
   document.getElementById('escapismBtn').classList.toggle('active', escapismRunning);
   document.getElementById('escapismBtn').innerText = escapismRunning ? 'Pause' : 'Track';
   persistTrackerState();
@@ -819,6 +989,103 @@ function toggleDailyExposure(){
   exposureDoneToday = !exposureDoneToday;
   persistTrackerState();
   updateUI();
+}
+
+/* ============================================================
+   AMBIENT SOUND (YouTube) — plays a looping ambient/lofi video
+   through the YouTube IFrame Player API for background sound
+   while you work. Requires an internet connection; like the
+   task timers, most phones suspend it once the screen locks.
+   ============================================================ */
+let ytPlayer = null;
+let ytApiLoading = false;
+let ytApiCallbacks = [];
+let ambientPlaying = false;
+
+function loadYouTubeAPI(cb){
+  if(window.YT && window.YT.Player){ cb(); return; }
+  ytApiCallbacks.push(cb);
+  if(ytApiLoading) return;
+  ytApiLoading = true;
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+  window.onYouTubeIframeAPIReady = function(){
+    ytApiCallbacks.forEach(fn=>fn());
+    ytApiCallbacks = [];
+  };
+}
+
+function extractYouTubeId(input){
+  if(!input) return null;
+  const trimmed = input.trim();
+  if(/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  const patterns = [
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /[?&]v=([a-zA-Z0-9_-]{11})/,
+    /\/live\/([a-zA-Z0-9_-]{11})/,
+    /\/shorts\/([a-zA-Z0-9_-]{11})/,
+    /embed\/([a-zA-Z0-9_-]{11})/
+  ];
+  for(const p of patterns){ const m = trimmed.match(p); if(m) return m[1]; }
+  return null;
+}
+
+function toggleAmbientPanel(){
+  document.getElementById('ambientPanel').classList.toggle('hidden');
+}
+
+function onAmbientPresetChange(){
+  const val = document.getElementById('ambientPreset').value;
+  document.getElementById('ambientCustomRow').classList.toggle('hidden', val!=='custom');
+  document.getElementById('ambientPlayBtn').disabled = !val;
+}
+
+function currentAmbientVideoId(){
+  const val = document.getElementById('ambientPreset').value;
+  if(!val) return null;
+  if(val==='custom') return extractYouTubeId(document.getElementById('ambientCustomInput').value);
+  return val;
+}
+
+function toggleAmbientPlayback(){
+  if(ambientPlaying && ytPlayer){
+    ytPlayer.pauseVideo();
+    ambientPlaying = false;
+    document.getElementById('ambientPlayBtn').innerText = 'Play';
+    return;
+  }
+  const id = currentAmbientVideoId();
+  if(!id){ toast('Pick a sound or paste a YouTube link first'); return; }
+  loadYouTubeAPI(()=>startAmbientPlayer(id));
+}
+
+function startAmbientPlayer(videoId){
+  if(ytPlayer && ytPlayer.loadVideoById){
+    ytPlayer.loadVideoById(videoId);
+    ambientPlaying = true;
+    document.getElementById('ambientPlayBtn').innerText = 'Pause';
+    return;
+  }
+  const host = document.getElementById('ambientPlayerHost');
+  host.innerHTML = '<div id="ytPlayerDiv"></div>';
+  ytPlayer = new YT.Player('ytPlayerDiv', {
+    videoId: videoId,
+    playerVars: { autoplay:1, playsinline:1 },
+    events: {
+      onReady: (e)=>{
+        e.target.setVolume(parseInt(document.getElementById('ambientVolume').value)||60);
+        e.target.playVideo();
+        ambientPlaying = true;
+        document.getElementById('ambientPlayBtn').innerText = 'Pause';
+      },
+      onError: ()=> toast('That video could not be played — try another link.')
+    }
+  });
+}
+
+function setAmbientVolume(v){
+  if(ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(parseInt(v));
 }
 
 /* ============================================================
@@ -843,7 +1110,7 @@ function renderTasks(){
         '<div class="subtask-row">' +
           '<div class="subtask-check '+(s.done?'on':'')+'" onclick="toggleSubtask('+index+',\''+s.id+'\')"></div>' +
           '<span class="stext '+(s.done?'done':'')+'">'+escapeHtml(s.text)+'</span>' +
-          '<span class="smins">'+Math.floor(s.elapsedSec/60)+'m</span>' +
+          '<span class="smins">'+Math.floor(((s.dailySec&&s.dailySec[todayStr])||0)/60)+'m</span>' +
           '<button class="btn ghost small mini-timer-btn '+(s.isRunning?'active':'')+'" onclick="toggleSubtaskTimer('+index+',\''+s.id+'\')">'+(s.isRunning?'Pause':'Start')+'</button>' +
           '<button class="btn ghost small" onclick="removeSubtask('+index+',\''+s.id+'\')">Remove</button>' +
         '</div>'
@@ -1199,9 +1466,14 @@ function openQuickPractice(type){
         <option value="silly">Say it in a silly voice / sing it</option>
         <option value="leaves">Leaves on a stream</option>
         <option value="nameit">Name the story</option>
+        <option value="mindread">Label the mind-read</option>
+        <option value="physicalize">Give it a shape</option>
       </select>
       <button class="btn small block" style="margin-top:10px;" onclick="defuseThought()">Apply</button>
       <div id="defuserResult" class="hidden" style="margin-top:10px; padding:10px; background:var(--surface-2); border-radius:9px; font-size:13px; color:var(--text);"></div>`;
+  } else if(type==='observer'){
+    card.innerHTML = `<h3>You're not the weather</h3><p class="subnote">Self-as-context: the part of you that notices anxiety is never itself anxious. This finds that part.</p><div id="observerStepArea" style="margin-top:10px;"></div><div class="ground-progress" id="observerProgress"></div>`;
+    startObserver();
   }
 }
 
@@ -1210,7 +1482,9 @@ const DEFUSE_FRAMES = {
   thankmind: t => `"Thanks, mind, for that one — the '${t}' thought again." You're acknowledging it arrived without adopting it.`,
   silly: t => `Try saying "${t}" out loud in the voice of a cartoon character, or singing it to a tune you know. The words stay the same; the weight drops.`,
   leaves: t => `Picture a stream. Place the thought "${t}" on a leaf and watch it float past — you're on the bank, not in the water.`,
-  nameit: t => `Give the pattern a name: "Ah, there's the '${t}' story again." Naming it as a familiar story creates a little distance.`
+  nameit: t => `Give the pattern a name: "Ah, there's the '${t}' story again." Naming it as a familiar story creates a little distance.`,
+  mindread: t => `Try: "My mind is guessing what other people think — the guess is '${t}.'" A guess about someone else's private thoughts is a mind-read, not a report of fact, however confident it feels.`,
+  physicalize: t => `Close your eyes for a moment and picture "${t}" as an object — a size, a color, a texture, maybe even a weight. Let it sit a foot or two in front of you. You're not fighting it or shrinking it on purpose — just noticing it's a thing you can look at, not something you're fused inside.`
 };
 function defuseThought(){
   const input = document.getElementById('defuserInput').value.trim();
@@ -1280,6 +1554,32 @@ function renderGroundStep(){
     <button class="btn small" style="margin-top:8px;" onclick="nextGroundStep()">Next</button>`;
 }
 function nextGroundStep(){ groundStep++; renderGroundStep(); }
+
+/* ---- Self-as-context / observer-self ---- */
+const OBSERVER_PROMPTS = [
+  { label:'Name the anxious thought or feeling that\u2019s here right now, as if reporting it.' },
+  { label:'Now notice: something in you is aware of that thought. That noticing part isn\u2019t anxious \u2014 it\u2019s just watching. Can you feel the difference between the anxiety and the part that sees the anxiety?' },
+  { label:'That noticing part has been present through every version of you \u2014 nervous, confident, bored, embarrassed. Anxiety is weather passing through it, not the sky itself.' },
+  { label:'From that observing place, name one small thing you\u2019re about to do anyway.' }
+];
+let observerStep = 0;
+function startObserver(){ observerStep = 0; renderObserverStep(); }
+function renderObserverStep(){
+  const area = document.getElementById('observerStepArea');
+  const prog = document.getElementById('observerProgress');
+  if(!area) return;
+  prog.innerHTML = OBSERVER_PROMPTS.map((_,i)=>`<span class="${i<observerStep?'done':''}"></span>`).join('');
+  if(observerStep >= OBSERVER_PROMPTS.length){
+    area.innerHTML = `<p class="ground-step">That watching place is always available \u2014 you don't have to earn calm to reach it, just notice it's there.</p>`;
+    return;
+  }
+  const p = OBSERVER_PROMPTS[observerStep];
+  area.innerHTML = `
+    <div class="ground-step">${p.label}</div>
+    <input type="text" id="observerInput" placeholder="Type it, then continue" />
+    <button class="btn small" style="margin-top:8px;" onclick="nextObserverStep()">Next</button>`;
+}
+function nextObserverStep(){ observerStep++; renderObserverStep(); }
 
 /* ---- Values compass ---- */
 function renderValuesArea(){
