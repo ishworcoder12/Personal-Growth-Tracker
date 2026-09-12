@@ -521,6 +521,13 @@
       <div id="exposureList" class="empty">None logged today.</div>
     </div>
 
+    <div class="card">
+      <h3>History</h3>
+      <p class="subnote">Look up any single day's values, check-in, and exposures.</p>
+      <input type="date" id="dayLookupDate" onchange="renderDayLookup()" style="margin-top:8px;" />
+      <div id="dayLookupBody" style="margin-top:10px;"></div>
+    </div>
+
     <div class="section-heading"><h2>What you're moving toward</h2></div>
     <div class="card">
       <p class="subnote">Not a mood to chase — a direction worth choosing, especially on the hard days.</p>
@@ -531,18 +538,23 @@
     <div class="card">
       <label>What have you tried to make the anxiety go away — and did it actually last?</label>
       <textarea id="note-hopelessness" rows="3" placeholder="e.g. Over-preparing every sentence in advance — helps for five minutes, exhausting, doesn't hold."></textarea>
-      <button class="btn small" style="margin-top:8px;" onclick="saveActNote('hopelessness')">Save note</button>
+      <button class="btn small" id="hopelessnessSaveBtn" style="margin-top:8px;" onclick="saveActNote('hopelessness')">Save note</button>
     </div>
 
     <div class="section-heading"><h2>AI reflection</h2></div>
     <div class="card">
-      <p class="subnote">A short ACT-informed reflection on today's entries.</p>
+      <p class="subnote">A short ACT-informed reflection on today's entries — or on a wider stretch of days.</p>
       <button class="btn block" style="margin-top:12px;" id="aiAnalyzeBtn" onclick="analyzeWithAI()">Analyze my entries</button>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="btn ghost small" id="aiWeekBtn" style="flex:1;" onclick="analyzeRange(7,'the last 7 days','aiWeekBtn')">Analyze this week</button>
+        <button class="btn ghost small" id="aiMonthBtn" style="flex:1;" onclick="analyzeRange(30,'the last 30 days','aiMonthBtn')">Analyze this month</button>
+      </div>
       <div id="aiOutput" class="hidden" style="margin-top:12px; padding:10px; background:var(--surface-2); border-radius:9px; font-size:13px; white-space:pre-wrap;"></div>
       <button class="btn small hidden" id="aiSaveBtn" style="margin-top:8px;" onclick="saveAIInsight()">Save this reflection</button>
     </div>
     <div class="card">
       <h3>Saved reflections</h3>
+      <input type="date" id="aiHistoryDate" onchange="renderAIInsights()" style="margin-bottom:8px;" />
       <div id="aiInsightsList" class="empty">None saved yet.</div>
     </div>
 
@@ -704,7 +716,11 @@ let armedLabel = '';
 let gardenScope = 'day';
 // aiSettings removed — AI reflection now uses Puter.js (puter.ai.chat), which handles its own auth.
 let aiInsights = [];
+let valuesHistory = {}; // date -> snapshot of values at last Save
+let actNotesHistory = {}; // date -> snapshot of actNotes at last Save
+let exposureRepsHistory = []; // flat, never wiped on day rollover — every exposure rep ever logged, each tagged with its date
 let lastAIResponse = '';
+let lastAISummary = '';
 let kindnessStep = 0;
 const TREE_EMOJI = ['🫘','🌱','🌿','🌲','🌳']; // stage 0 (barely started) .. 4 (fully grown)
 const DEAD_EMOJI = '🥀';
@@ -923,6 +939,9 @@ const REFERENCE = [
   customSounds = await loadJSON('ambient-sounds', []);
   // ai-settings no longer used (Puter.js handles auth)
   aiInsights = await loadJSON('ai-insights', []);
+  valuesHistory = await loadJSON('values-history', {});
+  actNotesHistory = await loadJSON('act-notes-history', {});
+  exposureRepsHistory = await loadJSON('exposure-history', []);
 
   // Catch up on a day that finished while the app was closed. Without this,
   // a day only ever got archived into History if the app happened to be
@@ -959,9 +978,11 @@ const REFERENCE = [
   yearSelect.addEventListener('change', renderCalendar);
 
   document.getElementById('note-hopelessness').value = actNotes.hopelessness || '';
+  document.getElementById('dayLookupDate').value = todayStr; // default: today's log on refresh
 
   renderTasks();
   renderCalendar();
+  renderDayLookup();
   renderExposureList();
   renderLadder();
   renderValuesArea();
@@ -986,6 +1007,17 @@ function toast(msg){
   t.classList.add('show');
   clearTimeout(t._h);
   t._h = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// Flashes a save button to "Saved ✓" for a beat so confirmation is visible
+// right where the click happened, not just in an easy-to-miss toast —
+// used the same way on every explicit Save button in the ACT toolkit.
+function flashSaved(btn, label){
+  if(!btn) return;
+  clearTimeout(btn._flashTimer);
+  if(btn._origText === undefined) btn._origText = btn.innerText;
+  btn.innerText = label || 'Saved \u2713';
+  btn._flashTimer = setTimeout(()=>{ btn.innerText = btn._origText; }, 1400);
 }
 
 /* ============================================================
@@ -1477,13 +1509,25 @@ function calculateProgress(task, dateStr){
   return calculateProgressForSeconds(task, (task.dailySec && task.dailySec[dateStr]) || 0);
 }
 
+// A day with zero exposure work nudges the score down a little — nowhere
+// near the escapism penalty, just enough to register, same spirit as the
+// "little not drastic" ask. Values-intention and check-in engagement each
+// nudge it back up a little, so the toolkit itself (not just exposure)
+// feeds the garden.
+const NO_EXPOSURE_PENALTY = 3;
+const ACT_ENGAGEMENT_BONUS = 2;
+
 function getNetDailyScoreForDate(dateStr, escSec, doneToday, reps){
   const escapismMins = Math.floor(escSec/60);
   const penalty = Math.floor(escapismMins/2);
   let sum=0; tasks.forEach(t=>sum+=calculateProgress(t, dateStr));
   const avg = tasks.length ? sum/tasks.length : 0;
   const expBonus = (doneToday?10:0) + (reps.length*5);
-  return Math.max(0, Math.min(100, Math.round(avg - penalty + expBonus)));
+  const noExposurePenalty = doneToday ? 0 : NO_EXPOSURE_PENALTY;
+  const v = dateStr===todayStr ? values : valuesHistory[dateStr];
+  const notes = dateStr===todayStr ? actNotes : actNotesHistory[dateStr];
+  const actBonus = ((v && v.intention) ? ACT_ENGAGEMENT_BONUS : 0) + ((notes && notes.hopelessness) ? ACT_ENGAGEMENT_BONUS : 0);
+  return Math.max(0, Math.min(100, Math.round(avg - penalty - noExposurePenalty + expBonus + actBonus)));
 }
 
 function getNetDailyScore(){
@@ -1499,8 +1543,13 @@ function estimateDailyScore(dateStr){
   if(growth === null) return null;
   const escMin = escapismMinutesForDate(dateStr);
   const penalty = Math.floor(escMin/2);
-  const expBonus = exposureDaysLog.includes(dateStr) ? 10 : 0;
-  return Math.max(0, Math.min(100, Math.round(growth - penalty + expBonus)));
+  const doneToday = exposureDaysLog.includes(dateStr);
+  const expBonus = doneToday ? 10 : 0;
+  const noExposurePenalty = doneToday ? 0 : NO_EXPOSURE_PENALTY;
+  const v = dateStr===todayStr ? values : valuesHistory[dateStr];
+  const notes = dateStr===todayStr ? actNotes : actNotesHistory[dateStr];
+  const actBonus = ((v && v.intention) ? ACT_ENGAGEMENT_BONUS : 0) + ((notes && notes.hopelessness) ? ACT_ENGAGEMENT_BONUS : 0);
+  return Math.max(0, Math.min(100, Math.round(growth - penalty - noExposurePenalty + expBonus + actBonus)));
 }
 
 // Archives one finished day into History/Task-history/Escapism-history and,
@@ -1621,6 +1670,50 @@ function selectDate(dateStr){
   document.getElementById('selectedDateTitle').innerText = dateStr===todayStr ? "Today's score" : `${dateStr} score`;
   renderCalendar();
   updateUI();
+}
+
+// Used by the ACT toolkit tab's type-a-date lookup.
+function buildDayDetailHTML(dateStr){
+  const parts = [];
+
+  const v = dateStr===todayStr ? values : valuesHistory[dateStr];
+  if(v){
+    const domainLine = Object.entries(v).filter(([k])=>k!=='intention').map(([k,val])=>`${k} ${val}/10`).join(', ');
+    parts.push(`<div class="exp-item"><b>Values compass</b><div class="meta">${domainLine}</div></div>`);
+    if(v.intention) parts.push(`<div class="exp-item"><b>Intention</b><div class="meta">${escapeHtml(v.intention)}</div></div>`);
+  }
+
+  const notes = dateStr===todayStr ? actNotes : actNotesHistory[dateStr];
+  if(notes && notes.hopelessness) parts.push(`<div class="exp-item"><b>Check-in</b><div class="meta">${escapeHtml(notes.hopelessness)}</div></div>`);
+
+  const reps = exposureRepsHistory.filter(r=>r.date===dateStr);
+  if(reps.length){
+    parts.push(reps.map(r=>`
+      <div class="exp-item">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+          <b>${escapeHtml(r.trigger)}</b>
+          <button class="icon-btn" style="font-size:15px;" onclick="deleteExposureRep('${r.id}')">\u00d7</button>
+        </div>
+        <div class="meta">Anxiety ${r.pre}/10 \u2192 ${r.post}/10${r.willingness!==undefined?` &middot; willingness ${r.willingness}/10`:''}</div>
+        ${r.defusion?`<div class="note">"${escapeHtml(r.defusion)}"</div>`:''}
+      </div>`).join(''));
+  }else{
+    parts.push(`<div class="exp-item"><b>Exposures</b><div class="meta">\ud83d\ude14 Sorry, no exposure logged on this day.</div></div>`);
+  }
+
+  if(reflections[dateStr]) parts.push(`<div class="exp-item"><b>Reflection note</b><div class="meta">${escapeHtml(reflections[dateStr])}</div></div>`);
+
+  const insight = aiInsights.find(i=>i.date===dateStr);
+  if(insight) parts.push(`<div class="exp-item"><b>AI reflection</b><div class="meta" style="white-space:pre-wrap;">${escapeHtml(insight.response)}</div></div>`);
+
+  return parts.join('');
+}
+
+function renderDayLookup(){
+  const input = document.getElementById('dayLookupDate');
+  const dateStr = (input && input.value) || todayStr;
+  const body = document.getElementById('dayLookupBody');
+  if(body) body.innerHTML = buildDayDetailHTML(dateStr);
 }
 
 function saveDayToHistory(){
@@ -2133,7 +2226,7 @@ function renderValuesArea(){
     </div>`).join('') + `
     <label style="margin-top:12px; display:block;">Today's values-aligned intention</label>
     <input type="text" id="valueIntention" value="${escapeHtml(values.intention||'')}" placeholder="e.g. Speak up once in standup" />
-    <button class="btn small" style="margin-top:8px;" onclick="saveValues()">Save</button>`;
+    <button class="btn small" id="valuesSaveBtn" style="margin-top:8px;" onclick="saveValues()">Save</button>`;
 }
 function updateValueSlider(domain, val){
   values[domain] = parseInt(val);
@@ -2141,13 +2234,21 @@ function updateValueSlider(domain, val){
 }
 function saveValues(){
   values.intention = document.getElementById('valueIntention').value;
+  valuesHistory[todayStr] = { ...values };
   persistTrackerState();
+  saveJSON('values-history', valuesHistory);
+  flashSaved(document.getElementById('valuesSaveBtn'));
+  renderDayLookup();
   toast('Values saved');
 }
 
 function saveActNote(id){
   actNotes[id] = document.getElementById('note-'+id).value;
+  actNotesHistory[todayStr] = { ...(actNotesHistory[todayStr]||{}), [id]: actNotes[id] };
   persistTrackerState();
+  saveJSON('act-notes-history', actNotesHistory);
+  flashSaved(document.getElementById(id+'SaveBtn'));
+  renderDayLookup();
   toast('Saved');
 }
 
@@ -2168,18 +2269,36 @@ function buildACTSummary(){
 }
 function buildACTPrompt(summary){
   // The instruction below deliberately front-loads "apply ACT" as the lens
-  // for reading the raw entries, rather than leaving Claude to guess how a
+  // for reading the raw entries, rather than leaving the model guess how a
   // values slider or a ladder rung is meant to be interpreted.
-  return `Apply Acceptance and Commitment Therapy (ACT) as the lens for reading everything below — this is not a to-do list to grade or a mood to fix. Each entry maps to a specific ACT process, noted in parentheses so you read it in context rather than at face value:
+  return `You're a warm, ACT-informed reflection voice inside a self-tracking app for someone working on social anxiety. Write the way a good ACT therapist would talk in session: direct, curious, and caring — never clinical, never a list of generic compliments. You are not their therapist and must not diagnose or give clinical advice.
+
+Apply Acceptance and Commitment Therapy (ACT) as the lens for reading everything below — this is not a to-do list to grade or a mood to fix. Each entry maps to a specific ACT process, noted in parentheses so you read it in context rather than at face value:
 - Values compass sliders = valued living, not a performance score.
 - Exposure ladder and today's intention = committed action.
 - Exposure reps' anxiety and willingness ratings = acceptance/willingness (the point is not that anxiety went down, but whether they were willing to have it and act anyway).
 - The check-in note = creative hopelessness (auditing control strategies that don't hold up long-term, without shaming the person for having tried them).
 
-You're a warm ACT-informed reflection voice inside a self-tracking app for someone working on social anxiety. Read their entries below through that lens and write a short (150-200 word) reflection: name one genuine act of willingness or values-aligned effort you actually see in the data (not a generic compliment), and name one workable next step tied to their own stated values or the next rung on their own ladder. Avoid generic platitudes and avoid clinical language. You are not their therapist, and must not diagnose or give clinical advice.
+Write exactly three short paragraphs, in this order, nothing before or after:
+1. Affirm one genuine, specific act of willingness or values-aligned effort you actually see in the data — name the actual thing they did, not a generic compliment.
+2. Name the gap, honestly and without shaming them — where avoidance, rigidity, or a control strategy is showing up in what they logged, and what it's quietly costing them.
+3. Give one concrete, workable next step tied to their own stated values or the next rung on their own ladder.
+
+Formatting rules — follow exactly: plain prose sentences only, three paragraphs separated by a blank line. No markdown, no asterisks, no bullet points, no headers, no bold text.
 
 Entries:
 ${summary}`;
+}
+// Strips markdown emphasis/bullet markers a model might add despite the
+// plain-prose instruction above, since aiOutput renders as plain text and
+// literal "**word**" or "- " would otherwise show up unrendered.
+function stripMarkdown(text){
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/^[\s]*[-*]\s+/gm, '')
+    .trim();
 }
 async function callAI(messageText){
   if(!window.puter || !puter.ai || !puter.ai.chat){
@@ -2199,7 +2318,8 @@ async function analyzeWithAI(){
   const prompt = buildACTPrompt(summary);
   try{
     const text = await callAI(prompt);
-    lastAIResponse = text || 'No response text came back.';
+    lastAIResponse = stripMarkdown(text || 'No response text came back.');
+    lastAISummary = summary;
     const out = document.getElementById('aiOutput');
     out.innerText = lastAIResponse;
     out.classList.remove('hidden');
@@ -2210,9 +2330,84 @@ async function analyzeWithAI(){
     btn.disabled = false; btn.innerText = 'Analyze my entries';
   }
 }
+
+// Builds a summary across the last `days` days (today included), or returns
+// null if there's too little logged to say anything meaningful — the
+// caller uses that null to skip the AI call entirely rather than spend a
+// request on "not much happened."
+function buildRangeSummary(days){
+  const dates = [];
+  for(let i=0;i<days;i++){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    dates.push(localDateStr(d));
+  }
+  const repsInRange = exposureRepsHistory.filter(r=>dates.includes(r.date));
+  const activeDays = new Set(repsInRange.map(r=>r.date));
+  dates.forEach(d=>{
+    const v = d===todayStr ? values : valuesHistory[d];
+    const n = d===todayStr ? actNotes : actNotesHistory[d];
+    if(v && v.intention) activeDays.add(d);
+    if(n && n.hopelessness) activeDays.add(d);
+  });
+  if(activeDays.size < 2) return null;
+
+  const lines = [`Range: last ${days} days, ${activeDays.size} day(s) with anything logged.`];
+  if(repsInRange.length){
+    lines.push(`Exposure reps across the range (${repsInRange.length} total): ${repsInRange.map(r=>`${r.date}: "${r.trigger}" anxiety ${r.pre}\u2192${r.post}${r.willingness!==undefined?`, willingness ${r.willingness}/10`:''}`).join(' | ')}`);
+  }
+  const intentions = dates.filter(d=>{ const v=d===todayStr?values:valuesHistory[d]; return v && v.intention; })
+    .map(d=>{ const v=d===todayStr?values:valuesHistory[d]; return `${d}: ${v.intention}`; });
+  if(intentions.length) lines.push(`Stated intentions across the range: ${intentions.join(' | ')}`);
+  const checkins = dates.filter(d=>{ const n=d===todayStr?actNotes:actNotesHistory[d]; return n && n.hopelessness; })
+    .map(d=>{ const n=d===todayStr?actNotes:actNotesHistory[d]; return `${d}: ${n.hopelessness}`; });
+  if(checkins.length) lines.push(`Check-in notes across the range: ${checkins.join(' | ')}`);
+  return lines.join('\n');
+}
+
+function buildRangePrompt(summary, label){
+  return `You're a warm, ACT-informed reflection voice inside a self-tracking app for someone working on social anxiety. Write the way a good ACT therapist would talk in session: direct, curious, and caring — never clinical. You are not their therapist and must not diagnose or give clinical advice.
+
+Below is their logged data across ${label}, not just one day — read it for a pattern across the days, not a single moment. Exposure reps' anxiety and willingness ratings are about acceptance/willingness (whether they were willing to have the discomfort and act anyway, not whether the anxiety number dropped). Stated intentions and check-in notes are about committed action and creative hopelessness (auditing which control strategies keep getting tried and not holding up).
+
+Write exactly three short paragraphs, in this order, nothing before or after:
+1. Affirm one real pattern of willingness or values-aligned effort building across these days — name what you actually see, not a generic compliment.
+2. Name the gap, honestly and without shaming them — a pattern of avoidance, a repeated strategy that isn't working, or stalling, that shows up across the days.
+3. Give one concrete, workable next step for the coming stretch, tied to their own stated values or the next rung on their own ladder.
+
+Formatting rules — follow exactly: plain prose sentences only, three paragraphs separated by a blank line. No markdown, no asterisks, no bullet points, no headers, no bold text.
+
+Logged data:
+${summary}`;
+}
+
+async function analyzeRange(days, label, btnId){
+  const summary = buildRangeSummary(days);
+  if(!summary){
+    toast(`Not enough data logged yet to analyze ${label}.`);
+    return;
+  }
+  const btn = document.getElementById(btnId);
+  const orig = btn.innerText;
+  btn.disabled = true; btn.innerText = 'Thinking\u2026';
+  const prompt = buildRangePrompt(summary, label);
+  try{
+    const text = await callAI(prompt);
+    lastAIResponse = stripMarkdown(text || 'No response text came back.');
+    lastAISummary = summary;
+    const out = document.getElementById('aiOutput');
+    out.innerText = lastAIResponse;
+    out.classList.remove('hidden');
+    document.getElementById('aiSaveBtn').classList.remove('hidden');
+  }catch(e){
+    toast('Could not reach the AI: ' + e.message);
+  }finally{
+    btn.disabled = false; btn.innerText = orig;
+  }
+}
+
 function saveAIInsight(){
   if(!lastAIResponse) return;
-  aiInsights.unshift({ date: todayStr, summary: buildACTSummary(), response: lastAIResponse });
+  aiInsights.unshift({ date: todayStr, summary: lastAISummary, response: lastAIResponse });
   saveJSON('ai-insights', aiInsights);
   renderAIInsights();
   toast('Reflection saved');
@@ -2220,12 +2415,19 @@ function saveAIInsight(){
 function renderAIInsights(){
   const list = document.getElementById('aiInsightsList');
   if(!list) return;
-  if(!aiInsights.length){ list.innerHTML='None saved yet.'; list.className='empty'; return; }
+  const dateInput = document.getElementById('aiHistoryDate');
+  const pickedDate = dateInput && dateInput.value;
+  const entries = pickedDate ? aiInsights.filter(e=>e.date===pickedDate) : aiInsights.slice(0,20);
+  if(!entries.length){
+    list.innerHTML = pickedDate ? `\ud83d\ude14 Sorry, no reflection saved on this day.` : 'None saved yet.';
+    list.className='empty';
+    return;
+  }
   list.className='';
-  list.innerHTML = aiInsights.slice(0,20).map(e=>`
-    <div style="padding:9px 0; border-bottom:1px solid var(--line);">
-      <div style="font-size:11px; color:var(--faint); margin-bottom:3px;">${e.date}</div>
-      <div style="font-size:13px; color:var(--text); white-space:pre-wrap;">${escapeHtml(e.response)}</div>
+  list.innerHTML = entries.map(e=>`
+    <div class="exp-item">
+      <b>${e.date}</b>
+      <div class="meta" style="white-space:pre-wrap;">${escapeHtml(e.response)}</div>
     </div>`).join('');
 }
 
@@ -2304,7 +2506,10 @@ function saveExposureRep(){
   // (see getNetDailyScoreForDate) on top of its own +5% — later reps only
   // add the +5% per-rep amount, so the toast reflects whichever applies.
   const isFirstRepToday = !exposureDoneToday;
-  exposureReps.push({ trigger, pre, post, willingness, droppedSafety, defusion });
+  const id = 'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  const rep = { id, date: todayStr, trigger, pre, post, willingness, droppedSafety, defusion };
+  exposureReps.push(rep);
+  exposureRepsHistory.push(rep); // same object reference — never wiped on day rollover, so it stays viewable by date after today
   exposureDoneToday = true;
   if(!exposureDaysLog.includes(todayStr)) exposureDaysLog.push(todayStr);
 
@@ -2314,9 +2519,25 @@ function saveExposureRep(){
   document.getElementById('willingness').value='7';
 
   persistTrackerState();
+  saveJSON('exposure-history', exposureRepsHistory);
   renderExposureList();
+  renderDayLookup();
   updateUI();
   toast(isFirstRepToday ? 'Exposure logged (+15% — first rep today)' : 'Exposure logged (+5%)');
+}
+function deleteExposureRep(id){
+  exposureReps = exposureReps.filter(r=>r.id!==id);
+  exposureRepsHistory = exposureRepsHistory.filter(r=>r.id!==id);
+  // Recompute today's "done" flag/streak entry from what's actually left,
+  // rather than leaving a stale bonus active for a rep that's been removed.
+  exposureDoneToday = exposureReps.length>0;
+  if(!exposureDoneToday) exposureDaysLog = exposureDaysLog.filter(d=>d!==todayStr);
+  persistTrackerState();
+  saveJSON('exposure-history', exposureRepsHistory);
+  renderExposureList();
+  renderDayLookup();
+  updateUI();
+  toast('Removed');
 }
 function renderExposureList(){
   const list = document.getElementById('exposureList');
@@ -2324,7 +2545,10 @@ function renderExposureList(){
   list.className='';
   list.innerHTML = exposureReps.map(r=>`
     <div class="exp-item">
-      <b>${escapeHtml(r.trigger)}</b>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+        <b>${escapeHtml(r.trigger)}</b>
+        <button class="icon-btn" style="font-size:15px;" onclick="deleteExposureRep('${r.id}')">\u00d7</button>
+      </div>
       <div class="meta">Anxiety ${r.pre}/10 \u2192 ${r.post}/10${r.willingness!==undefined?` &middot; willingness ${r.willingness}/10`:''} ${r.droppedSafety?'<span class="tag">&middot; safety behaviors dropped</span>':''}</div>
       ${r.defusion ? `<div class="note">"${escapeHtml(r.defusion)}"</div>` : ''}
     </div>
