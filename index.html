@@ -8,6 +8,7 @@
 <meta name="theme-color" content="#161d14" />
 <link rel="icon" href="icon-192.png" />
 <link rel="apple-touch-icon" href="icon-192.png" />
+<script src="https://js.puter.com/v2/"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -105,17 +106,8 @@
 
   .escapism-card{ border-color: var(--clay-dim); }
 
-  /* Audio-only: the iframe stays alive (so playback keeps running) but is
-     clipped to 1x1px. Kept INSIDE the actual viewport (fixed, bottom-right
-     corner) rather than pushed off-screen with a negative left/top — some
-     WebViews (notably wrapped-APK ones) treat an off-screen-positioned
-     iframe as "not visible" and suspend its playback the same way
-     display:none would, even though display:none is never used here.
-     Staying on-screen at near-zero size/opacity avoids that, while still
-     being visually imperceptible. pointer-events:none keeps the 1px spot
-     from ever intercepting a tap. */
-  #ambientPlayerHost{ position:fixed; width:1px; height:1px; bottom:0; right:0; overflow:hidden; opacity:0.01; pointer-events:none; z-index:-1; }
-  #ambientPlayerHost iframe{ width:1px; height:1px; border:0; }
+  #ambientPlayerHost{ margin-top:10px; }
+  #ambientPlayerHost iframe{ width:100%; aspect-ratio:16/9; border:0; border-radius: var(--radius-md); display:block; }
 
   .sound-row{ display:flex; align-items:center; gap:6px; padding:7px 0; border-bottom:1px solid var(--line); }
   .sound-row:last-child{ border-bottom:none; }
@@ -304,7 +296,7 @@
         <h3>Ambient sound</h3>
         <button class="icon-btn" aria-label="Toggle ambient sound panel" onclick="toggleAmbientPanel()">⋯</button>
       </div>
-      <p class="subnote" id="ambientSubnote">Plays audio only (no video window) from YouTube — or a direct audio file link — in the background while you work. Needs an internet connection. If YouTube stays silent inside a wrapped APK, add a custom sound below with a direct .mp3/.wav/.ogg link instead; that format works in far more WebViews.</p>
+      <p class="subnote" id="ambientSubnote">Play a looping video from YouTube, or a direct audio file link, in the background while you work.</p>
       <div id="ambientPanel">
         <label>Quick presets</label>
         <select id="ambientPreset" onchange="onAmbientPresetChange()">
@@ -544,18 +536,7 @@
 
     <div class="section-heading"><h2>AI reflection</h2></div>
     <div class="card">
-      <p class="subnote">Sends today's values, ladder, exposure reps and check-in note to Google's free Gemini API — using your own free API key, stored only on this device — for a short ACT-informed reflection. Not therapy, not a diagnosis, just a second perspective.</p>
-      <button class="btn ghost small" style="margin-top:8px;" onclick="toggleAISettings()">API key settings</button>
-      <div id="aiSettingsBox" class="hidden" style="margin-top:8px;">
-        <label>Google AI Studio API key (free, no card)</label>
-        <input type="password" id="aiApiKey" placeholder="AIza..." />
-        <label style="margin-top:8px; display:block;">Model</label>
-        <input type="text" id="aiModel" placeholder="gemini-2.5-flash" />
-        <button class="btn small" style="margin-top:8px;" onclick="saveAISettings()">Save</button>
-        <button class="btn ghost small" style="margin-top:8px;" onclick="testAIConnection()">Test connection</button>
-        <p class="subnote" style="margin-top:6px;">Get a free key at aistudio.google.com (sign in with any Google account, click "Get API key" — no credit card, no billing setup). Paste it above, once. Stored only in this app's local storage on this device.</p>
-        <p class="subnote" style="margin-top:6px;">This is a plain network request with your key attached — no popup, no sign-in window — so it should work inside a wrapped APK where popup-based sign-ins (like the earlier Puter.js version) get stuck on a blank tab. If it still fails only inside the APK and not in Chrome, the wrapper is blocking outbound network requests entirely, which usually means switching to a Trusted Web Activity build.</p>
-      </div>
+      <p class="subnote">A short ACT-informed reflection on today's entries.</p>
       <button class="btn block" style="margin-top:12px;" id="aiAnalyzeBtn" onclick="analyzeWithAI()">Analyze my entries</button>
       <div id="aiOutput" class="hidden" style="margin-top:12px; padding:10px; background:var(--surface-2); border-radius:9px; font-size:13px; white-space:pre-wrap;"></div>
       <button class="btn small hidden" id="aiSaveBtn" style="margin-top:8px;" onclick="saveAIInsight()">Save this reflection</button>
@@ -564,6 +545,7 @@
       <h3>Saved reflections</h3>
       <div id="aiInsightsList" class="empty">None saved yet.</div>
     </div>
+
 
     <div class="card">
       <button class="btn ghost block" onclick="toggleReference()">What's this all based on?</button>
@@ -720,7 +702,7 @@ let armedSrc = null; // currently selected/armed sound — a YouTube video id or
 let armedKind = null; // 'yt' | 'audio'
 let armedLabel = '';
 let gardenScope = 'day';
-let aiSettings = { apiKey:'', model:'gemini-2.5-flash' }; // free Google AI Studio key — plain fetch, no popup, so it works inside restrictive WebView wrappers
+// aiSettings removed — AI reflection now uses Puter.js (puter.ai.chat), which handles its own auth.
 let aiInsights = [];
 let lastAIResponse = '';
 let kindnessStep = 0;
@@ -939,7 +921,7 @@ const REFERENCE = [
   reflections = await loadJSON('reflections', {});
   dharmaLog = await loadJSON('dharma-log', []);
   customSounds = await loadJSON('ambient-sounds', []);
-  aiSettings = await loadJSON('ai-settings', { apiKey:'', model:'gemini-2.5-flash' });
+  // ai-settings no longer used (Puter.js handles auth)
   aiInsights = await loadJSON('ai-insights', []);
 
   // Catch up on a day that finished while the app was closed. Without this,
@@ -1156,38 +1138,12 @@ function toggleDailyExposure(){
 }
 
 /* ============================================================
-   AMBIENT SOUND — plays either a looping YouTube video (audio only,
-   via the YouTube IFrame Player API) or a direct audio file link
-   (via a plain HTML5 <audio> element) for background sound while you
-   work. The direct-audio path exists because a YouTube iframe needs
-   third-party cookies/postMessage support that some wrapped-APK
-   WebViews block outright, while a plain <audio src="..."> tag is
-   basic media playback that virtually every WebView supports — so if
-   YouTube presets stay silent in your APK, add a custom sound with a
-   direct .mp3/.wav/.ogg/.m4a link instead (same "My sounds" form,
-   just paste a direct file link instead of a YouTube one). Requires
-   an internet connection either way; like the task timers, most
-   phones suspend playback once the screen locks.
+   AMBIENT SOUND — plays either a looping YouTube video, embedded
+   directly below the controls, or a direct audio file link (via a
+   plain HTML5 <audio> element).
    ============================================================ */
-let ytPlayer = null;
-let ytApiLoading = false;
-let ytApiCallbacks = [];
 let htmlAudio = null; // the <audio> element used for direct-file sounds
 let ambientPlaying = false;
-
-function loadYouTubeAPI(cb){
-  if(window.YT && window.YT.Player){ cb(); return; }
-  ytApiCallbacks.push(cb);
-  if(ytApiLoading) return;
-  ytApiLoading = true;
-  const tag = document.createElement('script');
-  tag.src = 'https://www.youtube.com/iframe_api';
-  document.head.appendChild(tag);
-  window.onYouTubeIframeAPIReady = function(){
-    ytApiCallbacks.forEach(fn=>fn());
-    ytApiCallbacks = [];
-  };
-}
 
 function extractYouTubeId(input){
   if(!input) return null;
@@ -1230,7 +1186,7 @@ function onAmbientPresetChange(){
 
 function toggleAmbientPlayback(){
   if(ambientPlaying){
-    if(armedKind==='yt' && ytPlayer) ytPlayer.pauseVideo();
+    if(armedKind==='yt') stopYouTubePlayer();
     if(armedKind==='audio' && htmlAudio) htmlAudio.pause();
     ambientPlaying = false;
     document.getElementById('ambientPlayBtn').innerText = 'Play';
@@ -1240,40 +1196,26 @@ function toggleAmbientPlayback(){
   }
   if(!armedSrc){ toast('Pick a sound first'); return; }
   if(armedKind==='audio') startDirectAudioPlayer(armedSrc);
-  else loadYouTubeAPI(()=>startYouTubePlayer(armedSrc));
+  else startYouTubePlayer(armedSrc);
 }
 
 function startYouTubePlayer(videoId){
   if(htmlAudio) htmlAudio.pause(); // stop any direct-file sound before switching
-  if(ytPlayer && ytPlayer.loadVideoById){
-    ytPlayer.loadVideoById(videoId);
-    ambientPlaying = true;
-    document.getElementById('ambientPlayBtn').innerText = 'Pause';
-    updateNowPlaying();
-    renderSoundList();
-    return;
-  }
   const host = document.getElementById('ambientPlayerHost');
-  host.innerHTML = '<div id="ytPlayerDiv"></div>';
-  ytPlayer = new YT.Player('ytPlayerDiv', {
-    videoId: videoId,
-    playerVars: { autoplay:1, playsinline:1 },
-    events: {
-      onReady: (e)=>{
-        e.target.setVolume(parseInt(document.getElementById('ambientVolume').value)||60);
-        e.target.playVideo();
-        ambientPlaying = true;
-        document.getElementById('ambientPlayBtn').innerText = 'Pause';
-        updateNowPlaying();
-        renderSoundList();
-      },
-      onError: ()=> toast('That video could not be played — try another link, or a direct audio file link instead.')
-    }
-  });
+  host.innerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&playsinline=1&loop=1&playlist=${encodeURIComponent(videoId)}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+  ambientPlaying = true;
+  document.getElementById('ambientPlayBtn').innerText = 'Pause';
+  updateNowPlaying();
+  renderSoundList();
+}
+
+function stopYouTubePlayer(){
+  const host = document.getElementById('ambientPlayerHost');
+  if(host) host.innerHTML = '';
 }
 
 function startDirectAudioPlayer(url){
-  if(ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo(); // stop any YouTube sound before switching
+  stopYouTubePlayer(); // stop any YouTube video before switching
   if(!htmlAudio){
     htmlAudio = new Audio();
     htmlAudio.loop = true;
@@ -1295,14 +1237,13 @@ function startDirectAudioPlayer(url){
 }
 
 function setAmbientVolume(v){
-  if(armedKind==='yt' && ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(parseInt(v));
   if(armedKind==='audio' && htmlAudio) htmlAudio.volume = parseInt(v)/100;
 }
 
 function updateNowPlaying(){
   const el = document.getElementById('ambientNowPlaying');
   if(!el) return;
-  el.innerText = armedLabel ? (ambientPlaying ? `Now playing (audio only): ${armedLabel}` : `Ready: ${armedLabel}`) : '';
+  el.innerText = armedLabel ? (ambientPlaying ? `Now playing: ${armedLabel}` : `Ready: ${armedLabel}`) : '';
 }
 
 /* ---- Custom sound list: editable / deletable ---- */
@@ -1363,7 +1304,7 @@ function playCustomSound(id){
   document.getElementById('ambientPreset').value = '';
   document.getElementById('ambientPlayBtn').disabled = false;
   if(kind==='audio') startDirectAudioPlayer(src);
-  else loadYouTubeAPI(()=>startYouTubePlayer(src));
+  else startYouTubePlayer(src);
 }
 function renderSoundList(){
   const list = document.getElementById('soundList');
@@ -2179,28 +2120,10 @@ function saveActNote(id){
 }
 
 /* ============================================================
-   AI REFLECTION — reads your own free Google AI Studio (Gemini) API
-   key, kept only on this device, and asks Gemini for a short,
-   ACT-informed reflection on today's entries. This is a plain
-   fetch() POST with the key attached as a header — no popup, no
-   sign-in window, no third-party domain navigation — specifically
-   because popup-based auth (an earlier version of this used Puter.js)
-   gets stuck on a blank tab inside most wrapped-APK WebViews. A
-   plain network request is far more likely to survive that wrapper,
-   as long as the WebView allows outbound internet access at all.
+   AI REFLECTION — uses Puter.js (puter.ai.chat) for a short
+   ACT-informed reflection on today's entries. Puter.js handles
+   auth itself (a login popup on first use), no key to manage.
    ============================================================ */
-function toggleAISettings(){
-  const box = document.getElementById('aiSettingsBox');
-  box.classList.toggle('hidden');
-  document.getElementById('aiApiKey').value = aiSettings.apiKey || '';
-  document.getElementById('aiModel').value = aiSettings.model || 'gemini-2.5-flash';
-}
-function saveAISettings(){
-  aiSettings.apiKey = document.getElementById('aiApiKey').value.trim();
-  aiSettings.model = document.getElementById('aiModel').value.trim() || 'gemini-2.5-flash';
-  saveJSON('ai-settings', aiSettings);
-  toast('Saved locally');
-}
 function buildACTSummary(){
   const lines = [];
   const valueLines = Object.entries(values).filter(([k])=>k!=='intention').map(([k,v])=>`${k} ${v}/10`);
@@ -2226,66 +2149,24 @@ You're a warm ACT-informed reflection voice inside a self-tracking app for someo
 Entries:
 ${summary}`;
 }
-function geminiEndpoint(){
-  const model = aiSettings.model || 'gemini-2.5-flash';
-  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-}
-async function callAI(messageText, maxTokens){
-  const controller = new AbortController();
-  const timeout = setTimeout(()=>controller.abort(), 25000);
-  try{
-    const res = await fetch(geminiEndpoint(), {
-      method:'POST',
-      mode:'cors',
-      headers:{
-        'Content-Type':'application/json',
-        'x-goog-api-key': aiSettings.apiKey
-      },
-      body: JSON.stringify({
-        contents: [{ role:'user', parts:[{ text: messageText }] }],
-        generationConfig: { maxOutputTokens: maxTokens }
-      }),
-      signal: controller.signal
-    });
-    let data;
-    try{ data = await res.json(); }
-    catch(parseErr){ throw new Error(`Server responded with status ${res.status} but no readable JSON — likely a wrapper/proxy intercepting the request, not Google itself.`); }
-    if(!res.ok) throw new Error((data && data.error && data.error.message) || `Request failed (${res.status})`);
-    const cand = data.candidates && data.candidates[0];
-    const parts = cand && cand.content && cand.content.parts;
-    return (parts || []).map(p=>p.text || '').join('\n').trim();
-  }catch(e){
-    if(e.name === 'AbortError'){
-      throw new Error('Timed out waiting for a response. If this keeps happening on the APK build but not in a normal browser, the WebView may be blocking outbound network requests entirely.');
-    }
-    if(e instanceof TypeError){
-      // The request never actually left the device — CORS rejection, no
-      // network permission, or a wrapper sandboxing outbound calls.
-      throw new Error('Network request never went through (no response at all). In a normal mobile browser this call works; inside a wrapped APK it usually means the WebView is blocking outbound requests to a domain other than the one it was pointed at. Switching to a Trusted Web Activity build is the most reliable fix.');
-    }
-    throw e;
-  }finally{
-    clearTimeout(timeout);
+async function callAI(messageText){
+  if(!window.puter || !puter.ai || !puter.ai.chat){
+    throw new Error('Puter.js hasn\u2019t loaded — check your connection and try again.');
   }
-}
-async function testAIConnection(){
-  if(!aiSettings.apiKey){ toast('Add your API key first'); return; }
-  toast('Testing\u2026');
-  try{
-    const text = await callAI('Reply with just the word "connected".', 10);
-    toast(text ? 'Connection OK \u2014 got a response back' : 'Reached the server but got an empty reply');
-  }catch(e){
-    toast('Test failed: ' + e.message);
-  }
+  const response = await puter.ai.chat(messageText);
+  if(typeof response === 'string') return response.trim();
+  const content = response && response.message && response.message.content;
+  if(typeof content === 'string') return content.trim();
+  if(Array.isArray(content)) return content.map(p=>p.text||'').join('\n').trim();
+  return String(response).trim();
 }
 async function analyzeWithAI(){
-  if(!aiSettings.apiKey){ toast('Add your API key in settings first'); toggleAISettings(); return; }
   const btn = document.getElementById('aiAnalyzeBtn');
   btn.disabled = true; btn.innerText = 'Thinking\u2026';
   const summary = buildACTSummary();
   const prompt = buildACTPrompt(summary);
   try{
-    const text = await callAI(prompt, 500);
+    const text = await callAI(prompt);
     lastAIResponse = text || 'No response text came back.';
     const out = document.getElementById('aiOutput');
     out.innerText = lastAIResponse;
