@@ -8,6 +8,11 @@
 <meta name="theme-color" content="#161d14" />
 <link rel="icon" href="icon-192.png" />
 <link rel="apple-touch-icon" href="icon-192.png" />
+<!-- Puter.js: gives the AI reflection card free access to Claude with no
+     API key and no billing — usage rides the visitor's own free Puter
+     account (sign-in happens automatically, once, the first time the
+     "Analyze my entries" button is used). -->
+<script src="https://js.puter.com/v2/"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -105,8 +110,48 @@
 
   .escapism-card{ border-color: var(--clay-dim); }
 
-  #ambientPlayerHost iframe{ width:100%; height:150px; border:0; border-radius: var(--radius-md); display:block; }
-  #ambientPlayerHost:empty{ display:none; }
+  /* Audio-only: the iframe stays alive (so playback keeps running) but is
+     clipped to 1x1px and pushed off-screen instead of shown as a video
+     window. display:none would risk the browser suspending playback, so we
+     clip instead of removing it. */
+  #ambientPlayerHost{ position:absolute; width:1px; height:1px; overflow:hidden; left:-9999px; top:-9999px; }
+  #ambientPlayerHost iframe{ width:1px; height:1px; border:0; }
+
+  .sound-row{ display:flex; align-items:center; gap:6px; padding:7px 0; border-bottom:1px solid var(--line); }
+  .sound-row:last-child{ border-bottom:none; }
+  .sound-row.active .sname{ color:var(--moss); font-weight:600; }
+  .sound-row .sname{ flex:1; font-size:13px; }
+
+  .scope-nav{ display:flex; gap:6px; }
+  .scope-btn{ flex:1; background:var(--surface-2); border:1px solid var(--line); color:var(--subtext); border-radius:30px; padding:8px 4px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:'Inter'; }
+  .scope-btn.active{ background:var(--moss-deep); color:var(--text); border-color:var(--moss-deep); }
+
+  .forest-grid{ display:flex; flex-wrap:wrap; gap:8px; }
+  .tree-cell{ width:15%; min-width:38px; display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .tree-cell .temoji{ font-size:24px; line-height:1; }
+  .tree-cell .tdate{ font-size:9px; color:var(--faint); }
+  .tree-cell.today .tdate{ color:var(--moss); font-weight:700; }
+
+  /* Simple garden patch — flat, organic, and intentionally calm. */
+  .garden-plot-wrap{ padding: 8px 0 18px; }
+  .garden-plot{
+    position:relative; min-height:150px; max-height:280px; overflow-y:auto; box-sizing:border-box;
+    display:flex; flex-wrap:wrap; align-content:flex-end; align-items:flex-end;
+    gap:2px 4px; padding:22px 12px 16px;
+    border:1px solid var(--moss-deep);
+    border-radius:10px;
+    background:
+      radial-gradient(circle at 18% 30%, rgba(147,177,126,.10) 0 2px, transparent 3px),
+      radial-gradient(circle at 78% 62%, rgba(147,177,126,.08) 0 2px, transparent 3px),
+      linear-gradient(180deg, #2d3b24 0%, #24301d 100%);
+    box-shadow: inset 0 2px 12px rgba(0,0,0,.22), 0 12px 24px -18px rgba(0,0,0,.6);
+  }
+  .garden-tree{ display:flex; align-items:flex-end; justify-content:center; line-height:1; cursor:pointer; user-select:none; filter:drop-shadow(0 2px 2px rgba(0,0,0,.28)); transition:transform .15s ease; min-width:34px; }
+  .garden-tree:active{ transform:scale(.92) !important; }
+  .garden-tree.growing{ animation:gardenSway 2.8s ease-in-out infinite; }
+  @keyframes gardenSway{ 0%,100%{ margin-bottom:0; } 50%{ margin-bottom:2px; } }
+  .garden-empty-plot{ color:var(--faint); font-size:12.5px; text-align:center; width:100%; padding:20px 0; }
+  .garden-stage-note{ font-size:11px; color:var(--subtext); margin-top:4px; }
 
   input, textarea, select{ width:100%; background: var(--bg-soft); border:1px solid var(--line); color:var(--text); padding:9px 10px; border-radius: var(--radius-sm); margin-top:6px; box-sizing:border-box; font-family:'Inter'; font-size:13.5px; }
   input:focus, textarea:focus, select:focus{ outline:2px solid var(--moss-dim); outline-offset:1px; }
@@ -138,7 +183,7 @@
   .subtask-badge{ font-size:11px; color:var(--gold); font-weight:600; }
 
   /* ACT quick grid */
-  .quick-grid{ display:grid; grid-template-columns: repeat(4,1fr); gap:6px; margin-top:6px; }
+  .quick-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:6px; margin-top:6px; }
   .quick-btn{ background:var(--surface); border:1px solid var(--line); border-radius: var(--radius-md); padding:14px 6px; display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; color:var(--text); }
   .quick-btn .ic{ font-size:22px; }
   .quick-btn span{ font-size:11.5px; font-weight:600; text-align:center; }
@@ -227,6 +272,7 @@
 
   <div class="tab-nav">
     <button class="tab-btn active" onclick="showTab('dashboard', this)">Today</button>
+    <button class="tab-btn" onclick="showTab('garden', this)">Garden</button>
     <button class="tab-btn" onclick="showTab('calendar', this)">History</button>
     <button class="tab-btn" onclick="showTab('act', this)">ACT Toolkit</button>
     <button class="tab-btn" onclick="showTab('log', this)">Reflection</button>
@@ -258,8 +304,9 @@
         <h3>Ambient sound</h3>
         <button class="icon-btn" aria-label="Toggle ambient sound panel" onclick="toggleAmbientPanel()">⋯</button>
       </div>
-      <p class="subnote" id="ambientSubnote">Plays from YouTube in the background while you work — needs an internet connection.</p>
+      <p class="subnote" id="ambientSubnote">Plays audio only (no video window) from YouTube in the background while you work — needs an internet connection.</p>
       <div id="ambientPanel">
+        <label>Quick presets</label>
         <select id="ambientPreset" onchange="onAmbientPresetChange()">
           <option value="">Choose a preset…</option>
           <option value="8plwv25NYRo">Rain on a forest (10h)</option>
@@ -267,17 +314,33 @@
           <option value="uAwdL-iEydI">Ocean waves (10h)</option>
           <option value="gaGrHUekGrc">Coffee shop chatter (loop)</option>
           <option value="jfKfPfyJRdk">Lofi hip-hop radio (24/7 live)</option>
-          <option value="custom">Custom YouTube link / video ID…</option>
         </select>
-        <div id="ambientCustomRow" class="hidden" style="margin-top:8px;">
-          <input type="text" id="ambientCustomInput" placeholder="Paste a YouTube link or video ID" />
-        </div>
         <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
           <button class="btn small" id="ambientPlayBtn" onclick="toggleAmbientPlayback()" disabled>Play</button>
           <input type="range" id="ambientVolume" min="0" max="100" value="60" oninput="setAmbientVolume(this.value)" style="flex:1; margin-top:0;" />
         </div>
-        <div id="ambientPlayerHost" style="margin-top:10px; border-radius:var(--radius-md); overflow:hidden;"></div>
-        <p class="subnote" style="margin-top:8px;">Runs in a small YouTube player inside the page. Like the timers, most phones suspend it once the screen locks — see the note in chat about why that happens and how to reduce it.</p>
+        <p class="subnote" id="ambientNowPlaying" style="margin-top:6px;"></p>
+        <div id="ambientPlayerHost"></div>
+
+        <div style="margin-top:14px; border-top:1px dashed var(--line); padding-top:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="margin:0;">My sounds</label>
+            <button class="btn ghost small" onclick="toggleSoundForm()">+ Add</button>
+          </div>
+          <div id="soundFormCard" class="hidden" style="margin-top:8px;">
+            <input type="hidden" id="editSoundId" value="" />
+            <label>Name</label>
+            <input type="text" id="soundNameInput" placeholder="e.g. Study playlist" />
+            <label style="margin-top:6px; display:block;">YouTube link or video ID</label>
+            <input type="text" id="soundLinkInput" placeholder="https://youtube.com/watch?v=..." />
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button class="btn small block" onclick="saveSoundFromForm()">Save</button>
+              <button class="btn ghost small block" onclick="toggleSoundForm()">Cancel</button>
+            </div>
+          </div>
+          <div id="soundList" style="margin-top:6px;" class="empty">No custom sounds yet.</div>
+        </div>
+        <p class="subnote" style="margin-top:8px;">Like the timers, most phones suspend playback once the screen locks — see the note in chat about why that happens and how to reduce it.</p>
       </div>
     </div>
 
@@ -326,6 +389,38 @@
           <button class="btn ghost small" style="margin-top:6px; white-space:nowrap;" onclick="syncScreenTime()">Sync</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ============ GARDEN ============ -->
+  <div id="garden" class="tab-content hidden">
+    <div class="section-heading" style="margin-top:0;"><h2>Your garden</h2></div>
+    <p class="subnote" style="margin-bottom:12px;">Each task grows its own plant as you spend time on it. You can see the plant change while the timer is running; finishing the task completes its growth. Screen drift can still wither that day's plants.</p>
+
+    <div class="card">
+      <div class="streak-row">
+        <div class="streak-pill"><b id="gardenTotal">0</b><span>trees planted</span></div>
+        <div class="streak-pill"><b id="gardenHours">0h</b><span>hours grown</span></div>
+        <div class="streak-pill"><b id="gardenWithered">0</b><span>withered</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="scope-nav">
+        <button class="scope-btn active" data-scope="day" onclick="setGardenScope('day', this)">Today</button>
+        <button class="scope-btn" data-scope="week" onclick="setGardenScope('week', this)">Week</button>
+        <button class="scope-btn" data-scope="month" onclick="setGardenScope('month', this)">Month</button>
+        <button class="scope-btn" data-scope="all" onclick="setGardenScope('all', this)">All time</button>
+      </div>
+      <div class="garden-plot-wrap"><div class="garden-plot" id="gardenPlot"></div></div>
+      <p class="subnote" id="gardenEmpty" style="margin-top:8px;"></p>
+      <p class="subnote" style="margin-top:6px;">Biggest tree in this range: <b id="gardenBiggest" style="color:var(--gold);">—</b></p>
+    </div>
+
+    <div class="card">
+      <h3>How trees grow</h3>
+      <p class="subnote">Plants grow with timer progress: 🌰 seed → 🌱 sprout → 🌿 sapling → 🌲 young tree → 🌳 full tree. A task does not need to be finished for you to see its current stage.</p>
+      <p class="subnote" style="margin-top:6px;">🥀 withered — <span id="witherExplain">45+ minutes</span> of tracked gaming/phone drift on that same day withers everything planted that day, whatever the tasks looked like. Tap a tree to see exactly what it was and how long it took.</p>
     </div>
   </div>
 
@@ -387,13 +482,14 @@
   <!-- ============ ACT TOOLKIT ============ -->
   <div id="act" class="tab-content hidden">
     <div class="section-heading" style="margin-top:0;"><h2>ACT toolkit</h2></div>
-    <p class="subnote" style="margin-bottom:12px;">Anxious in the moment? Start here. These three are quick, no reading required.</p>
+    <p class="subnote" style="margin-bottom:12px;">Anxious in the moment? Start here. These five are quick, no reading required.</p>
 
     <div class="quick-grid" id="quickGrid">
       <button class="quick-btn" id="qbtn-ground" onclick="openQuickPractice('ground')"><span class="ic">🌿</span><span>Ground</span></button>
       <button class="quick-btn" id="qbtn-breathe" onclick="openQuickPractice('breathe')"><span class="ic">🌊</span><span>Breathe</span></button>
       <button class="quick-btn" id="qbtn-defuse" onclick="openQuickPractice('defuse')"><span class="ic">🍃</span><span>Unhook a thought</span></button>
       <button class="quick-btn" id="qbtn-observer" onclick="openQuickPractice('observer')"><span class="ic">🪞</span><span>Step back</span></button>
+      <button class="quick-btn" id="qbtn-kindness" onclick="openQuickPractice('kindness')"><span class="ic">🤍</span><span>Self-kindness</span></button>
     </div>
     <div class="card hidden" id="quickPracticeCard"></div>
 
@@ -416,6 +512,8 @@
         <div style="flex:1;"><label>Pre-anxiety (1–10)</label><input type="number" id="preAnxiety" min="1" max="10" value="6" /></div>
         <div style="flex:1;"><label>Post-anxiety (1–10)</label><input type="number" id="postAnxiety" min="1" max="10" value="3" /></div>
       </div>
+      <label style="margin-top:10px; display:block;">Willingness (0–10) — how willing were you to have the anxiety, not just get through it?</label>
+      <input type="number" id="willingness" min="0" max="10" value="7" />
       <div style="margin-top:10px; font-size:13px;">
         <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text);">
           <input type="checkbox" id="droppedSafetyCheck" style="width:auto; margin:0;" /> Dropped safety behaviors (eye contact kept, no rushing)
@@ -423,7 +521,7 @@
       </div>
       <label style="margin-top:10px; display:block;">Defusion note</label>
       <textarea id="defusionNote" rows="2" placeholder="I noticed my mind saying... and I did it anyway."></textarea>
-      <button class="btn block" style="margin-top:12px;" onclick="saveExposureRep()">Save rep (+10% today)</button>
+      <button class="btn block" style="margin-top:12px;" onclick="saveExposureRep()">Save rep (+5% today)</button>
     </div>
 
     <div class="card">
@@ -442,6 +540,26 @@
       <label>What have you tried to make the anxiety go away — and did it actually last?</label>
       <textarea id="note-hopelessness" rows="3" placeholder="e.g. Over-preparing every sentence in advance — helps for five minutes, exhausting, doesn't hold."></textarea>
       <button class="btn small" style="margin-top:8px;" onclick="saveActNote('hopelessness')">Save note</button>
+    </div>
+
+    <div class="section-heading"><h2>AI reflection</h2></div>
+    <div class="card">
+      <p class="subnote">Sends today's values, ladder, exposure reps and check-in note to Claude — free, via a Puter.js account instead of a paid API key — for a short ACT-informed reflection. Not therapy, not a diagnosis, just a second perspective.</p>
+      <button class="btn ghost small" style="margin-top:8px;" onclick="toggleAISettings()">AI settings</button>
+      <div id="aiSettingsBox" class="hidden" style="margin-top:8px;">
+        <label>Model</label>
+        <input type="text" id="aiModel" placeholder="claude-sonnet-5" />
+        <button class="btn small" style="margin-top:8px;" onclick="saveAISettings()">Save</button>
+        <button class="btn ghost small" style="margin-top:8px;" onclick="testAIConnection()">Test connection</button>
+        <p class="subnote" style="margin-top:6px;">No API key needed — the first time you analyze or test, a free Puter.com sign-in popup appears once; after that it's free and unlimited under Puter's "you sign in, they cover the model cost" plan. If you're running this through a "website to APK" wrapper and the popup or request silently fails while the same page works fine in Chrome, the wrapper's WebView is likely blocking it — not this app. Rebuilding the APK as a Trusted Web Activity / Bubblewrap build (which is just Chrome) is the most reliable fix.</p>
+      </div>
+      <button class="btn block" style="margin-top:12px;" id="aiAnalyzeBtn" onclick="analyzeWithAI()">Analyze my entries</button>
+      <div id="aiOutput" class="hidden" style="margin-top:12px; padding:10px; background:var(--surface-2); border-radius:9px; font-size:13px; white-space:pre-wrap;"></div>
+      <button class="btn small hidden" id="aiSaveBtn" style="margin-top:8px;" onclick="saveAIInsight()">Save this reflection</button>
+    </div>
+    <div class="card">
+      <h3>Saved reflections</h3>
+      <div id="aiInsightsList" class="empty">None saved yet.</div>
     </div>
 
     <div class="card">
@@ -560,7 +678,12 @@ async function persistTrackerState(){
     // process itself gets killed while the screen is locked (common for
     // WebView-wrapped APKs), the next launch can credit the real elapsed
     // time instead of just losing it or freezing the display.
-    activeRun: activeRunKey ? { key: activeRunKey, since: activeRunSince } : null
+    activeRun: activeRunKey ? { key: activeRunKey, since: activeRunSince } : null,
+    // The local calendar date as of this save. Lets init() notice "the app
+    // was last open on the 4th, it's now the 6th" and archive the skipped
+    // day(s) into History instead of silently leaving them at 0% forever
+    // (see the catch-up block in init()).
+    lastActiveDay: todayStr
   });
 }
 
@@ -585,9 +708,21 @@ let hierarchy = [];
 let actNotes = {};
 let exposureDaysLog = [];
 let savedHistory = {};
+let escapismHistory = {}; // date -> minutes of escapism that day (for the Garden)
 let taskHistory = {};
 let reflections = {};
 let dharmaLog = [];
+let customSounds = []; // user-added {id, name, videoId} ambient sounds
+let armedVideoId = null; // currently selected/armed YouTube video id
+let armedLabel = '';
+let gardenScope = 'day';
+let aiSettings = { model:'claude-sonnet-5' }; // no key — puter.ai.chat() handles auth via the visitor's free Puter account
+let aiInsights = [];
+let lastAIResponse = '';
+let kindnessStep = 0;
+const TREE_EMOJI = ['🫘','🌱','🌿','🌲','🌳']; // stage 0 (barely started) .. 4 (fully grown)
+const DEAD_EMOJI = '🥀';
+const WITHER_MIN = 45; // minutes of escapism on a day that wither every tree planted that day
 // Local calendar date (NOT UTC) — toISOString() shifts the date for anyone
 // not at UTC+0, which used to roll "today" over at the wrong clock time.
 function localDateStr(d = new Date()){
@@ -673,20 +808,24 @@ function checkForNewDay(){
   if(nowStr === todayStr) return;
   const prevToday = todayStr;
 
-  savedHistory[prevToday] = getNetDailyScore();
-  saveJSON('history', savedHistory);
-  tasks.forEach(t=>{
-    taskHistory[t.id] = taskHistory[t.id] || {};
-    taskHistory[t.id][prevToday] = calculateProgress(t);
-  });
-  saveJSON('task-history', taskHistory);
+  closeOutDay(prevToday, escapismSec, exposureDoneToday, exposureReps);
 
   if(selectedDate === prevToday) selectedDate = nowStr;
   todayStr = nowStr;
   exposureDoneToday = false;
   exposureReps = [];
   escapismSec = 0;
-  if(escapismRunning){ escapismRunning = false; }
+  if(escapismRunning){
+    // The escapism timer doesn't carry across days, so stop it for real —
+    // clear the active-run pointer and reset the button, not just the flag,
+    // so the UI doesn't keep showing "Pause" for a timer that's no longer
+    // accumulating anything.
+    escapismRunning = false;
+    setActiveRun(null);
+    releaseWakeLock();
+    const btn = document.getElementById('escapismBtn');
+    if(btn){ btn.classList.remove('active'); btn.innerText = 'Track'; }
+  }
 
   persistTrackerState();
   renderTasks(); renderCalendar(); renderExposureList(); updateUI();
@@ -791,9 +930,26 @@ const REFERENCE = [
     savedActiveRun = ts.activeRun || null;
   }
   savedHistory = await loadJSON('history', {});
+  escapismHistory = await loadJSON('escapism-history', {});
   taskHistory = await loadJSON('task-history', {});
   reflections = await loadJSON('reflections', {});
   dharmaLog = await loadJSON('dharma-log', []);
+  customSounds = await loadJSON('ambient-sounds', []);
+  aiSettings = await loadJSON('ai-settings', { model:'claude-sonnet-5' });
+  aiInsights = await loadJSON('ai-insights', []);
+
+  // Catch up on a day that finished while the app was closed. Without this,
+  // a day only ever got archived into History if the app happened to be
+  // open when local midnight ticked over (checkForNewDay) or if you
+  // remembered to tap "Save today" — otherwise that day silently stayed at
+  // 0% in History forever, even though the Garden tab could still
+  // reconstruct it from the raw per-task seconds.
+  if(ts && ts.lastActiveDay && ts.lastActiveDay !== todayStr){
+    closeOutDay(ts.lastActiveDay, escapismSec, exposureDoneToday, exposureReps);
+    exposureDoneToday = false;
+    exposureReps = [];
+    escapismSec = 0;
+  }
 
   tasks.forEach(t=>{
     t.isRunning=false; t.showMenu=false;
@@ -825,6 +981,10 @@ const REFERENCE = [
   renderValuesArea();
   renderReflections();
   renderDharmaList();
+  renderSoundList();
+  renderAIInsights();
+  document.getElementById('witherExplain').innerText = WITHER_MIN + '+ minutes';
+  renderGarden();
   updateUI();
 
   document.getElementById('loadingScreen').classList.add('hidden');
@@ -917,7 +1077,7 @@ function tick(){
   }
 
   document.getElementById('activeClockCard').classList.toggle('hidden', !activeFound);
-  if(activeFound){ recordTodayTaskProgress(); renderTasks(); updateUI(); renderTaskCalendar(); scheduleSave(); }
+  if(activeFound){ recordTodayTaskProgress(); renderTasks(); updateUI(); renderTaskCalendar(); if(gardenScope==='day' && !document.getElementById('garden').classList.contains('hidden')) renderGarden(); scheduleSave(); }
 }
 
 function updateLiveClock(){
@@ -1036,16 +1196,13 @@ function toggleAmbientPanel(){
 }
 
 function onAmbientPresetChange(){
-  const val = document.getElementById('ambientPreset').value;
-  document.getElementById('ambientCustomRow').classList.toggle('hidden', val!=='custom');
+  const sel = document.getElementById('ambientPreset');
+  const val = sel.value;
+  armedVideoId = val || null;
+  armedLabel = val ? sel.options[sel.selectedIndex].text : '';
   document.getElementById('ambientPlayBtn').disabled = !val;
-}
-
-function currentAmbientVideoId(){
-  const val = document.getElementById('ambientPreset').value;
-  if(!val) return null;
-  if(val==='custom') return extractYouTubeId(document.getElementById('ambientCustomInput').value);
-  return val;
+  updateNowPlaying();
+  renderSoundList();
 }
 
 function toggleAmbientPlayback(){
@@ -1053,11 +1210,12 @@ function toggleAmbientPlayback(){
     ytPlayer.pauseVideo();
     ambientPlaying = false;
     document.getElementById('ambientPlayBtn').innerText = 'Play';
+    updateNowPlaying();
+    renderSoundList();
     return;
   }
-  const id = currentAmbientVideoId();
-  if(!id){ toast('Pick a sound or paste a YouTube link first'); return; }
-  loadYouTubeAPI(()=>startAmbientPlayer(id));
+  if(!armedVideoId){ toast('Pick a sound first'); return; }
+  loadYouTubeAPI(()=>startAmbientPlayer(armedVideoId));
 }
 
 function startAmbientPlayer(videoId){
@@ -1065,6 +1223,8 @@ function startAmbientPlayer(videoId){
     ytPlayer.loadVideoById(videoId);
     ambientPlaying = true;
     document.getElementById('ambientPlayBtn').innerText = 'Pause';
+    updateNowPlaying();
+    renderSoundList();
     return;
   }
   const host = document.getElementById('ambientPlayerHost');
@@ -1078,6 +1238,8 @@ function startAmbientPlayer(videoId){
         e.target.playVideo();
         ambientPlaying = true;
         document.getElementById('ambientPlayBtn').innerText = 'Pause';
+        updateNowPlaying();
+        renderSoundList();
       },
       onError: ()=> toast('That video could not be played — try another link.')
     }
@@ -1086,6 +1248,83 @@ function startAmbientPlayer(videoId){
 
 function setAmbientVolume(v){
   if(ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(parseInt(v));
+}
+
+function updateNowPlaying(){
+  const el = document.getElementById('ambientNowPlaying');
+  if(!el) return;
+  el.innerText = armedLabel ? (ambientPlaying ? `Now playing (audio only): ${armedLabel}` : `Ready: ${armedLabel}`) : '';
+}
+
+/* ---- Custom sound list: editable / deletable ---- */
+function toggleSoundForm(){
+  document.getElementById('editSoundId').value='';
+  document.getElementById('soundNameInput').value='';
+  document.getElementById('soundLinkInput').value='';
+  document.getElementById('soundFormCard').classList.toggle('hidden');
+}
+function editCustomSound(id){
+  const s = customSounds.find(x=>x.id===id);
+  if(!s) return;
+  document.getElementById('editSoundId').value = id;
+  document.getElementById('soundNameInput').value = s.name;
+  document.getElementById('soundLinkInput').value = s.videoId;
+  document.getElementById('soundFormCard').classList.remove('hidden');
+}
+function saveSoundFromForm(){
+  const editId = document.getElementById('editSoundId').value;
+  const name = document.getElementById('soundNameInput').value.trim();
+  const link = document.getElementById('soundLinkInput').value.trim();
+  const videoId = extractYouTubeId(link);
+  if(!name) return toast('Name it first');
+  if(!videoId) return toast('Could not read a YouTube video from that link');
+  if(editId){
+    const s = customSounds.find(x=>x.id===editId);
+    if(s){ s.name=name; s.videoId=videoId; }
+  }else{
+    customSounds.push({ id:'snd'+Date.now(), name, videoId });
+  }
+  saveJSON('ambient-sounds', customSounds);
+  document.getElementById('soundFormCard').classList.add('hidden');
+  renderSoundList();
+  toast('Saved');
+}
+function deleteCustomSound(id){
+  customSounds = customSounds.filter(x=>x.id!==id);
+  saveJSON('ambient-sounds', customSounds);
+  if(armedVideoId && !customSounds.find(s=>s.videoId===armedVideoId) && ambientPlaying){
+    // the sound currently playing was just deleted — let it keep playing,
+    // it'll just no longer be selectable/editable from the list.
+  }
+  renderSoundList();
+}
+function playCustomSound(id){
+  const s = customSounds.find(x=>x.id===id);
+  if(!s) return;
+  if(ambientPlaying && armedVideoId===s.videoId){
+    toggleAmbientPlayback();
+    return;
+  }
+  armedVideoId = s.videoId;
+  armedLabel = s.name;
+  document.getElementById('ambientPreset').value = '';
+  document.getElementById('ambientPlayBtn').disabled = false;
+  loadYouTubeAPI(()=>startAmbientPlayer(s.videoId));
+}
+function renderSoundList(){
+  const list = document.getElementById('soundList');
+  if(!list) return;
+  if(!customSounds.length){ list.innerHTML='No custom sounds yet.'; list.className='empty'; return; }
+  list.className='';
+  list.innerHTML = customSounds.map(s=>{
+    const isPlaying = ambientPlaying && armedVideoId===s.videoId;
+    return `<div class="sound-row ${isPlaying?'active':''}">
+      <button class="icon-btn" style="font-size:15px;" onclick="playCustomSound('${s.id}')" aria-label="Play">${isPlaying?'⏸':'▶'}</button>
+      <span class="sname">${escapeHtml(s.name)}</span>
+      <button class="icon-btn" onclick="editCustomSound('${s.id}')" aria-label="Edit">✎</button>
+      <button class="icon-btn" onclick="deleteCustomSound('${s.id}')" aria-label="Delete">\u00d7</button>
+    </div>`;
+  }).join('');
 }
 
 /* ============================================================
@@ -1163,9 +1402,13 @@ function addSubtask(index){
 }
 function toggleSubtask(index, id){
   const s = tasks[index].subtasks.find(x=>x.id===id);
-  if(s) s.done = !s.done;
+  if(s){
+    s.done = !s.done;
+    if(s.done) s.completedDate = todayStr; // needed so the garden can place this tree on the right day
+  }
   persistTrackerState();
   renderTasks();
+  if(!document.getElementById('garden').classList.contains('hidden')) renderGarden();
 }
 function removeSubtask(index, id){
   tasks[index].subtasks = tasks[index].subtasks.filter(x=>x.id!==id);
@@ -1193,22 +1436,60 @@ function calculateProgressForSeconds(task, seconds){
   return 100;
 }
 
-function calculateProgress(task){
+function calculateProgress(task, dateStr){
   // The main task progress is time-based only. Mini-task completion never
   // injects an automatic 50% into the parent progress bar.
-  // Uses TODAY's seconds (dailySec), not the lifetime elapsedSec counter —
-  // floor/target are daily goals, so progress must reset each day on its own
-  // rather than requiring a manual "Reset current day" click every morning.
-  return calculateProgressForSeconds(task, (task.dailySec && task.dailySec[todayStr]) || 0);
+  // Defaults to TODAY's seconds (dailySec), not the lifetime elapsedSec
+  // counter — floor/target are daily goals, so progress must reset each day
+  // on its own rather than requiring a manual "Reset current day" click
+  // every morning. An explicit dateStr lets callers (History catch-up,
+  // Garden) read a past day's progress the same way.
+  dateStr = dateStr || todayStr;
+  return calculateProgressForSeconds(task, (task.dailySec && task.dailySec[dateStr]) || 0);
+}
+
+function getNetDailyScoreForDate(dateStr, escSec, doneToday, reps){
+  const escapismMins = Math.floor(escSec/60);
+  const penalty = Math.floor(escapismMins/2);
+  let sum=0; tasks.forEach(t=>sum+=calculateProgress(t, dateStr));
+  const avg = tasks.length ? sum/tasks.length : 0;
+  const expBonus = (doneToday?10:0) + (reps.length*5);
+  return Math.max(0, Math.min(100, Math.round(avg - penalty + expBonus)));
 }
 
 function getNetDailyScore(){
-  const escapismMins = Math.floor(escapismSec/60);
-  const penalty = Math.floor(escapismMins/2);
-  let sum=0; tasks.forEach(t=>sum+=calculateProgress(t));
-  const avg = tasks.length ? sum/tasks.length : 0;
-  const expBonus = (exposureDoneToday?10:0) + (exposureReps.length*5);
-  return Math.max(0, Math.min(100, Math.round(avg - penalty + expBonus)));
+  return getNetDailyScoreForDate(todayStr, escapismSec, exposureDoneToday, exposureReps);
+}
+
+function estimateDailyScore(dateStr){
+  // Best-effort score for a date that was never explicitly closed out
+  // (see closeOutDay) or manually saved — reconstructed from the same
+  // per-task seconds the Garden tab already falls back to, so History and
+  // Garden agree about a day that just never got formally "closed."
+  const growth = taskGrowthForDate(dateStr);
+  if(growth === null) return null;
+  const escMin = escapismMinutesForDate(dateStr);
+  const penalty = Math.floor(escMin/2);
+  const expBonus = exposureDaysLog.includes(dateStr) ? 10 : 0;
+  return Math.max(0, Math.min(100, Math.round(growth - penalty + expBonus)));
+}
+
+// Archives one finished day into History/Task-history/Escapism-history and,
+// if that day counted as an exposure day, into exposureDaysLog. Shared by
+// checkForNewDay (app open when midnight hits) and the init() catch-up
+// (app reopened after being closed across one or more midnights) so both
+// paths keep History and the streak counter consistent.
+function closeOutDay(dateStr, escSec, doneToday, reps){
+  savedHistory[dateStr] = getNetDailyScoreForDate(dateStr, escSec, doneToday, reps);
+  escapismHistory[dateStr] = Math.floor(escSec/60);
+  saveJSON('history', savedHistory);
+  saveJSON('escapism-history', escapismHistory);
+  tasks.forEach(t=>{
+    taskHistory[t.id] = taskHistory[t.id] || {};
+    taskHistory[t.id][dateStr] = calculateProgress(t, dateStr);
+  });
+  saveJSON('task-history', taskHistory);
+  if(doneToday && !exposureDaysLog.includes(dateStr)) exposureDaysLog.push(dateStr);
 }
 
 function toggleAddTaskForm(){
@@ -1293,7 +1574,7 @@ function renderCalendar(){
 
   for(let i=1;i<=daysInMonth;i++){
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
-    let fillScore = savedHistory[dateStr] !== undefined ? savedHistory[dateStr] : (dateStr===todayStr ? getNetDailyScore() : 0);
+    let fillScore = savedHistory[dateStr] !== undefined ? savedHistory[dateStr] : (dateStr===todayStr ? getNetDailyScore() : (estimateDailyScore(dateStr) ?? 0));
     const fillGradient = `conic-gradient(var(--moss) ${fillScore}%, var(--surface-2) 0)`;
     const cls = ['day-circle'];
     if(selectedDate===dateStr) cls.push('selected');
@@ -1316,7 +1597,9 @@ function selectDate(dateStr){
 function saveDayToHistory(){
   const score = getNetDailyScore();
   savedHistory[todayStr] = score;
+  escapismHistory[todayStr] = Math.floor(escapismSec/60);
   saveJSON('history', savedHistory);
+  saveJSON('escapism-history', escapismHistory);
 
   tasks.forEach(t=>{
     taskHistory[t.id] = taskHistory[t.id] || {};
@@ -1355,7 +1638,9 @@ function renderStreaks(){
   let streak=0;
   let d = new Date();
   while(true){
-    const ds = d.toISOString().split('T')[0];
+    // localDateStr, not toISOString — toISOString converts to UTC first,
+    // which misdates "today" for anyone not at UTC+0 (see localDateStr()).
+    const ds = localDateStr(d);
     const hit = ds===todayStr ? exposureDoneToday : exposureDaysLog.includes(ds);
     if(!hit) break;
     streak++;
@@ -1366,9 +1651,10 @@ function renderStreaks(){
   let sum=0, n=0;
   for(let i=0;i<7;i++){
     const d2 = new Date(); d2.setDate(d2.getDate()-i);
-    const ds = d2.toISOString().split('T')[0];
-    const sc = ds===todayStr ? getNetDailyScore() : savedHistory[ds];
-    if(sc!==undefined){ sum+=sc; n++; }
+    const ds = localDateStr(d2);
+    let sc = ds===todayStr ? getNetDailyScore() : savedHistory[ds];
+    if(sc===undefined) sc = estimateDailyScore(ds);
+    if(sc!==undefined && sc!==null){ sum+=sc; n++; }
   }
   document.getElementById('streakAvg').innerText = n ? `${Math.round(sum/n)}%` : '\u2014';
 }
@@ -1378,8 +1664,8 @@ function renderSparkline(){
   const points=[];
   for(let i=13;i>=0;i--){
     const d = new Date(); d.setDate(d.getDate()-i);
-    const ds = d.toISOString().split('T')[0];
-    const sc = ds===todayStr ? getNetDailyScore() : (savedHistory[ds]!==undefined ? savedHistory[ds] : null);
+    const ds = localDateStr(d);
+    const sc = ds===todayStr ? getNetDailyScore() : (savedHistory[ds]!==undefined ? savedHistory[ds] : estimateDailyScore(ds));
     points.push(sc);
   }
   const w=300, h=60, n=points.length, stepX = w/(n-1);
@@ -1418,11 +1704,210 @@ function renderTaskCalendar(){
   for(let i=1;i<=daysInMonth;i++){
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
     let dailySeconds = (task.dailySec && task.dailySec[dateStr]) || 0;
-    let pct = hist[dateStr] !== undefined ? hist[dateStr] : (dateStr===todayStr ? calculateProgressForSeconds(task, dailySeconds) : 0);
+    let pct = hist[dateStr] !== undefined ? hist[dateStr] : calculateProgressForSeconds(task, dailySeconds);
     const fillGradient = `conic-gradient(var(--gold) ${pct}%, var(--surface-2) 0)`;
     const cls = ['day-circle']; if(dateStr===todayStr) cls.push('today');
     grid.innerHTML += `<div class="${cls.join(' ')}" style="background:${fillGradient};" title="${pct}%">${i}</div>`;
   }
+}
+
+/* ============================================================
+   GARDEN — one tree per tracked day. Growth comes from how much of
+   that day's tasks got done; heavy escapism/phone drift withers the
+   tree outright, same instinct as the Forest app but pointed at your
+   real tasks instead of just leaving the app alone.
+   ============================================================ */
+function taskGrowthForDate(dateStr){
+  if(!tasks.length) return null;
+  let sum = 0, n = 0;
+  tasks.forEach(t=>{
+    let pct;
+    if(dateStr === todayStr){
+      pct = calculateProgress(t);
+    }else if(taskHistory[t.id] && taskHistory[t.id][dateStr] !== undefined){
+      pct = taskHistory[t.id][dateStr];
+    }else if(t.dailySec && t.dailySec[dateStr] !== undefined){
+      pct = calculateProgressForSeconds(t, t.dailySec[dateStr]);
+    }else{
+      return; // no data for this task on this date — skip it, not a zero
+    }
+    sum += pct; n++;
+  });
+  return n ? Math.round(sum/n) : null;
+}
+function escapismMinutesForDate(dateStr){
+  if(dateStr === todayStr) return Math.floor(escapismSec/60);
+  return escapismHistory[dateStr] !== undefined ? escapismHistory[dateStr] : 0;
+}
+function investedMinutesForTaskDate(task, dateStr){
+  // Best-effort minutes actually invested that day. If we don't have the
+  // exact seconds (e.g. an older saved day that only kept a percentage),
+  // fall back to the task's target — it hit 100%, so it took at least that.
+  if(task.dailySec && task.dailySec[dateStr] !== undefined) return Math.round(task.dailySec[dateStr]/60);
+  return task.target;
+}
+function hashStr(s){
+  let h = 0;
+  for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) | 0; }
+  return Math.abs(h);
+}
+function gardenTreeVisual(progress, minutes){
+  // Growth follows the same daily progress the task card shows.
+  // The minutes are still used to make completed trees slightly more substantial.
+  if(progress >= 100) return { emoji: TREE_EMOJI[4], size: Math.min(58, 42 + Math.round(Math.min(minutes,120)/20)) };
+  if(progress >= 75)  return { emoji: TREE_EMOJI[3], size: 44 };
+  if(progress >= 50)  return { emoji: TREE_EMOJI[2], size: 36 };
+  if(progress >= 20)  return { emoji: TREE_EMOJI[1], size: 29 };
+  return { emoji: TREE_EMOJI[0], size: 24 };
+}
+/* ============================================================
+   GARDEN EVENTS — one growing plant per task/subtask.
+   Today includes in-progress work so the garden changes live with
+   the timer. Older dates keep completed plantings for a clean history.
+   ============================================================ */
+function gardenEventsForScope(scope){
+  const dates = datesForGardenScope(scope);
+  const dateSet = new Set(dates);
+  const events = [];
+  tasks.forEach(t=>{
+    dates.forEach(dateStr=>{
+      const seconds = (t.dailySec && t.dailySec[dateStr]) || 0;
+      let pct;
+      if(dateStr === todayStr) pct = calculateProgress(t);
+      else if(taskHistory[t.id] && taskHistory[t.id][dateStr] !== undefined) pct = taskHistory[t.id][dateStr];
+      else if(seconds > 0) pct = calculateProgressForSeconds(t, seconds);
+      else return;
+      // Today: show a plant as soon as the timer has actually started.
+      // Older ranges: keep the garden about completed work.
+      if((dateStr === todayStr && seconds > 0) || (dateStr !== todayStr && pct >= 100)){
+        events.push({
+          id: t.id+'|'+dateStr,
+          label: t.name,
+          dateStr,
+          minutes: Math.max(1, Math.round(investedMinutesForTaskDate(t, dateStr))),
+          progress: pct,
+          growing: dateStr === todayStr && pct < 100,
+          withered: escapismMinutesForDate(dateStr) >= WITHER_MIN
+        });
+      }
+    });
+    (t.subtasks||[]).forEach(s=>{
+      const d = s.completedDate || (todayStr && s.dailySec && (s.dailySec[todayStr]||0) > 0 ? todayStr : null);
+      if(!d || (scope !== 'all' && !dateSet.has(d))) return;
+      const mins = Math.max(1, Math.round((s.elapsedSec||0)/60));
+      const pct = s.done ? 100 : Math.min(99, Math.round((mins / 15) * 100));
+      if(s.done || (d === todayStr && mins > 0)){
+        events.push({
+          id:s.id, label:s.text, dateStr:d, minutes:mins, progress:pct,
+          growing:d === todayStr && !s.done,
+          withered:escapismMinutesForDate(d) >= WITHER_MIN
+        });
+      }
+    });
+  });
+  events.sort((a,b)=> (a.dateStr||'').localeCompare(b.dateStr||''));
+  return events;
+}
+function datesForGardenScope(scope){
+  const dates = [];
+  if(scope==='day') dates.push(todayStr);
+  else if(scope==='week'){
+    for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); dates.push(localDateStr(d)); }
+  }else if(scope==='month'){
+    const now=new Date(), year=now.getFullYear(), month=now.getMonth();
+    const daysInMonth=new Date(year,month+1,0).getDate();
+    for(let i=1;i<=daysInMonth;i++){ const d=new Date(year,month,i); if(d>now) break; dates.push(localDateStr(d)); }
+  }else{
+    const keys=new Set([...Object.keys(savedHistory),todayStr]);
+    dates.push(...Array.from(keys).sort());
+  }
+  return dates;
+}
+/* One calm summary tree per day (instead of one per task/subtask) —
+   used for week/month/all so a busy history doesn't flood the plot.
+   "Today" keeps the detailed per-task view since there's only one day
+   of icons to show. This reuses the same per-day-progress idea the
+   original taskGrowthForDate() was set up for, but also folds in
+   subtasks and actual minutes invested so the tree size/withering
+   still line up with the detailed view. */
+function gardenDaySummary(dateStr){
+  let sum=0, n=0, minutes=0;
+  tasks.forEach(t=>{
+    let pct;
+    if(dateStr===todayStr) pct=calculateProgress(t);
+    else if(taskHistory[t.id] && taskHistory[t.id][dateStr]!==undefined) pct=taskHistory[t.id][dateStr];
+    else if(t.dailySec && t.dailySec[dateStr]!==undefined) pct=calculateProgressForSeconds(t, t.dailySec[dateStr]);
+    else pct=undefined;
+    if(pct!==undefined){ sum+=pct; n++; minutes+=investedMinutesForTaskDate(t, dateStr); }
+    (t.subtasks||[]).forEach(s=>{
+      const d = s.completedDate || (dateStr===todayStr && s.dailySec && (s.dailySec[dateStr]||0)>0 ? dateStr : null);
+      if(d!==dateStr) return;
+      const mins=Math.max(1, Math.round((s.elapsedSec||0)/60));
+      const spct = s.done ? 100 : Math.min(99, Math.round((mins/15)*100));
+      sum+=spct; n++; minutes+=mins;
+    });
+  });
+  if(!n) return null;
+  const progress=Math.round(sum/n);
+  return {
+    id:'day|'+dateStr,
+    label: n===1 ? '1 task tracked' : n+' tasks tracked',
+    dateStr,
+    minutes: Math.max(1, Math.round(minutes)),
+    progress,
+    growing: dateStr===todayStr && progress<100,
+    withered: escapismMinutesForDate(dateStr) >= WITHER_MIN
+  };
+}
+function gardenDaySummariesForScope(scope){
+  return datesForGardenScope(scope).map(gardenDaySummary).filter(Boolean);
+}
+function setGardenScope(scope, btn){
+  gardenScope=scope;
+  document.querySelectorAll('.scope-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderGarden();
+}
+function renderGarden(){
+  const plot=document.getElementById('gardenPlot');
+  const emptyNote=document.getElementById('gardenEmpty');
+  if(!plot) return;
+  const events=gardenEventsForScope(gardenScope);
+  if(!events.length){
+    plot.innerHTML='<div class="garden-empty-plot">Start any timer and your first plant will appear here.</div>';
+    document.getElementById('gardenTotal').innerText=0;
+    document.getElementById('gardenHours').innerText='0h';
+    document.getElementById('gardenWithered').innerText=0;
+    document.getElementById('gardenBiggest').innerText='—';
+    emptyNote.innerText='';
+    return;
+  }
+  let totalMinutes=0, withered=0, biggest=null;
+  events.forEach(e=>{
+    totalMinutes+=e.minutes;
+    if(e.withered) withered++;
+    if(!biggest || e.minutes>biggest.minutes) biggest=e;
+  });
+  // Today shows the detailed per-task/subtask breakdown (few icons either way).
+  // Week/month/all collapse to one tree per day so a productive stretch
+  // doesn't turn into a wall of dozens of near-identical icons.
+  const plotEvents = gardenScope==='day' ? events : gardenDaySummariesForScope(gardenScope);
+  const html=plotEvents.map(e=>{
+    const visual=gardenTreeVisual(e.progress,e.minutes);
+    const emoji=e.withered ? DEAD_EMOJI : visual.emoji;
+    const size=e.withered ? 24 : visual.size;
+    const dateLabel=e.dateStr && e.dateStr!=='unknown' ? e.dateStr.slice(5) : '';
+    const stage=e.withered ? 'withered' : (e.progress>=100 ? 'full tree' : e.progress>=75 ? 'young tree' : e.progress>=50 ? 'sapling' : e.progress>=20 ? 'sprout' : 'seed');
+    const title=`${e.label} · ${e.minutes}m · ${stage}${dateLabel ? ' · '+dateLabel : ''}${e.withered ? ' · withered by screen drift that day' : ''}`;
+    const safeTitle=escapeHtml(title).replace(/'/g,"\\'");
+    return `<div class="garden-tree ${e.growing ? 'growing':''}" style="font-size:${size}px" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}" onclick="toast('${safeTitle}')">${emoji}</div>`;
+  }).join('');
+  plot.innerHTML=html;
+  document.getElementById('gardenTotal').innerText=events.length;
+  document.getElementById('gardenHours').innerText=(totalMinutes/60).toFixed(1)+'h';
+  document.getElementById('gardenWithered').innerText=withered;
+  document.getElementById('gardenBiggest').innerText=biggest ? `${biggest.label} (${biggest.minutes}m)` : '—';
+  emptyNote.innerText=gardenScope==='day' ? 'Plants update as timers run.' : '';
 }
 
 /* ============================================================
@@ -1447,7 +1932,7 @@ function openQuickPractice(type){
   } else if(type==='breathe'){
     card.innerHTML = `
       <h3>Ride it out</h3>
-      <p class="subnote">Follow the orb: in on the expand, out on the contract. Let the sensation be there — you don't have to push it away.</p>
+      <p class="subnote">Follow the orb: in on the expand, out on the contract. Use the breath as an anchor while you make room for whatever is here.</p>
       <div class="breath-orb-wrap">
         <div class="breath-orb" id="breathOrb"></div>
         <div class="breath-label" id="breathLabel"></div>
@@ -1472,8 +1957,11 @@ function openQuickPractice(type){
       <button class="btn small block" style="margin-top:10px;" onclick="defuseThought()">Apply</button>
       <div id="defuserResult" class="hidden" style="margin-top:10px; padding:10px; background:var(--surface-2); border-radius:9px; font-size:13px; color:var(--text);"></div>`;
   } else if(type==='observer'){
-    card.innerHTML = `<h3>You're not the weather</h3><p class="subnote">Self-as-context: the part of you that notices anxiety is never itself anxious. This finds that part.</p><div id="observerStepArea" style="margin-top:10px;"></div><div class="ground-progress" id="observerProgress"></div>`;
+    card.innerHTML = `<h3>You're not the weather</h3><p class="subnote">Notice the part of you that can observe thoughts and feelings without needing to fix them.</p><div id="observerStepArea" style="margin-top:10px;"></div><div class="ground-progress" id="observerProgress"></div>`;
     startObserver();
+  } else if(type==='kindness'){
+    card.innerHTML = `<h3>Self-compassion break</h3><p class="subnote">The self-criticism that follows social anxiety (\u201cthat was so awkward\u201d) usually hurts more than the anxiety itself. This interrupts it.</p><div id="kindnessStepArea" style="margin-top:10px;"></div><div class="ground-progress" id="kindnessProgress"></div>`;
+    startKindness();
   }
 }
 
@@ -1581,6 +2069,30 @@ function renderObserverStep(){
 }
 function nextObserverStep(){ observerStep++; renderObserverStep(); }
 
+/* ---- Self-compassion break ---- */
+const KINDNESS_PROMPTS = [
+  { label:'Name what\u2019s hard right now, in one honest sentence \u2014 no minimizing it, no dramatizing it.' },
+  { label:'This is a moment of struggle. Struggling with social anxiety is part of being human, not a personal flaw \u2014 plenty of people carry some version of this same fear.' },
+  { label:'Offer yourself the words you\u2019d offer a friend in this exact spot. Say them, even silently: \u201cMay I be kind to myself here.\u201d' }
+];
+function startKindness(){ kindnessStep = 0; renderKindnessStep(); }
+function renderKindnessStep(){
+  const area = document.getElementById('kindnessStepArea');
+  const prog = document.getElementById('kindnessProgress');
+  if(!area) return;
+  prog.innerHTML = KINDNESS_PROMPTS.map((_,i)=>`<span class="${i<kindnessStep?'done':''}"></span>`).join('');
+  if(kindnessStep >= KINDNESS_PROMPTS.length){
+    area.innerHTML = `<p class="ground-step">That kindness doesn't need to be earned by doing better next time \u2014 it's available right now, exactly as this went.</p>`;
+    return;
+  }
+  const p = KINDNESS_PROMPTS[kindnessStep];
+  area.innerHTML = `
+    <div class="ground-step">${p.label}</div>
+    <input type="text" id="kindnessInput" placeholder="Type it, then continue" />
+    <button class="btn small" style="margin-top:8px;" onclick="nextKindnessStep()">Next</button>`;
+}
+function nextKindnessStep(){ kindnessStep++; renderKindnessStep(); }
+
 /* ---- Values compass ---- */
 function renderValuesArea(){
   const area = document.getElementById('valuesArea');
@@ -1608,6 +2120,120 @@ function saveActNote(id){
   actNotes[id] = document.getElementById('note-'+id).value;
   persistTrackerState();
   toast('Saved');
+}
+
+/* ============================================================
+   AI REFLECTION — asks Claude for a short, ACT-informed reflection
+   on today's entries via Puter.js (js.puter.com), which gives free,
+   keyless access to Claude models: usage is covered by the visitor's
+   own free Puter account rather than a paid Anthropic API key. Some
+   networks, WebView wrappers, or ad/script blockers may block the
+   puter.com domain, in which case you'll see an error toast rather
+   than a silent failure.
+   ============================================================ */
+function toggleAISettings(){
+  const box = document.getElementById('aiSettingsBox');
+  box.classList.toggle('hidden');
+  document.getElementById('aiModel').value = aiSettings.model || 'claude-sonnet-5';
+}
+function saveAISettings(){
+  aiSettings.model = document.getElementById('aiModel').value.trim() || 'claude-sonnet-5';
+  saveJSON('ai-settings', aiSettings);
+  toast('Saved locally');
+}
+function buildACTSummary(){
+  const lines = [];
+  const valueLines = Object.entries(values).filter(([k])=>k!=='intention').map(([k,v])=>`${k} ${v}/10`);
+  if(valueLines.length) lines.push(`Values compass (how much they're living each domain right now, 0-10): ${valueLines.join(', ')}.`);
+  if(values.intention) lines.push(`Today's committed-action intention: ${values.intention}`);
+  if(hierarchy.length) lines.push(`Exposure ladder (their own graded list of avoided situations, easy to hard): ${hierarchy.map(h=>`[${h.diff}] ${h.text}${h.done?' (done)':''}`).join('; ')}`);
+  if(exposureReps.length) lines.push(`Today's exposure reps, each with anxiety before/after and a willingness rating (0-10 = how willing they were to have the discomfort, not just endure it): ${exposureReps.map(r=>`"${r.trigger}" anxiety ${r.pre}\u2192${r.post}${r.willingness!==undefined?`, willingness ${r.willingness}/10`:''}${r.defusion?`, defusion note: ${r.defusion}`:''}`).join(' | ')}`);
+  if(actNotes.hopelessness) lines.push(`Creative-hopelessness check-in (what they've tried to control the anxiety, and whether it actually held up): ${actNotes.hopelessness}`);
+  return lines.length ? lines.join('\n') : 'No ACT entries logged yet today.';
+}
+function buildACTPrompt(summary){
+  // The instruction below deliberately front-loads "apply ACT" as the lens
+  // for reading the raw entries, rather than leaving Claude to guess how a
+  // values slider or a ladder rung is meant to be interpreted.
+  return `Apply Acceptance and Commitment Therapy (ACT) as the lens for reading everything below — this is not a to-do list to grade or a mood to fix. Each entry maps to a specific ACT process, noted in parentheses so you read it in context rather than at face value:
+- Values compass sliders = valued living, not a performance score.
+- Exposure ladder and today's intention = committed action.
+- Exposure reps' anxiety and willingness ratings = acceptance/willingness (the point is not that anxiety went down, but whether they were willing to have it and act anyway).
+- The check-in note = creative hopelessness (auditing control strategies that don't hold up long-term, without shaming the person for having tried them).
+
+You're a warm ACT-informed reflection voice inside a self-tracking app for someone working on social anxiety. Read their entries below through that lens and write a short (150-200 word) reflection: name one genuine act of willingness or values-aligned effort you actually see in the data (not a generic compliment), and name one workable next step tied to their own stated values or the next rung on their own ladder. Avoid generic platitudes and avoid clinical language. You are not their therapist, and must not diagnose or give clinical advice.
+
+Entries:
+${summary}`;
+}
+async function callClaude(messageText, maxTokens){
+  if(typeof puter === 'undefined' || !puter.ai || !puter.ai.chat){
+    throw new Error('Puter.js did not load — check your internet connection, or that this device/wrapper isn\'t blocking js.puter.com.');
+  }
+  const timeoutMs = 30000;
+  const timeout = new Promise((_,reject)=>setTimeout(()=>reject(new Error('Timed out waiting for a response. If this keeps happening on the APK build but not in a normal browser, the WebView is likely blocking the puter.com popup/request.')), timeoutMs));
+  try{
+    const response = await Promise.race([
+      puter.ai.chat(messageText, {
+        model: aiSettings.model || 'claude-sonnet-5',
+        max_tokens: maxTokens,
+        normalize: true // flattens Claude's native content-block array into a plain message.content string
+      }),
+      timeout
+    ]);
+    const text = response && response.message && typeof response.message.content === 'string'
+      ? response.message.content
+      : (typeof response === 'string' ? response : '');
+    return text.trim();
+  }catch(e){
+    if(e && e.message) throw e;
+    throw new Error('Could not reach Puter\'s AI service — check your connection and that puter.com isn\'t blocked.');
+  }
+}
+async function testAIConnection(){
+  toast('Testing\u2026');
+  try{
+    const text = await callClaude('Reply with just the word "connected".', 10);
+    toast(text ? 'Connection OK \u2014 got a response back' : 'Reached the server but got an empty reply');
+  }catch(e){
+    toast('Test failed: ' + e.message);
+  }
+}
+async function analyzeWithAI(){
+  const btn = document.getElementById('aiAnalyzeBtn');
+  btn.disabled = true; btn.innerText = 'Thinking\u2026';
+  const summary = buildACTSummary();
+  const prompt = buildACTPrompt(summary);
+  try{
+    const text = await callClaude(prompt, 500);
+    lastAIResponse = text || 'No response text came back.';
+    const out = document.getElementById('aiOutput');
+    out.innerText = lastAIResponse;
+    out.classList.remove('hidden');
+    document.getElementById('aiSaveBtn').classList.remove('hidden');
+  }catch(e){
+    toast('Could not reach the AI: ' + e.message);
+  }finally{
+    btn.disabled = false; btn.innerText = 'Analyze my entries';
+  }
+}
+function saveAIInsight(){
+  if(!lastAIResponse) return;
+  aiInsights.unshift({ date: todayStr, summary: buildACTSummary(), response: lastAIResponse });
+  saveJSON('ai-insights', aiInsights);
+  renderAIInsights();
+  toast('Reflection saved');
+}
+function renderAIInsights(){
+  const list = document.getElementById('aiInsightsList');
+  if(!list) return;
+  if(!aiInsights.length){ list.innerHTML='None saved yet.'; list.className='empty'; return; }
+  list.className='';
+  list.innerHTML = aiInsights.slice(0,20).map(e=>`
+    <div style="padding:9px 0; border-bottom:1px solid var(--line);">
+      <div style="font-size:11px; color:var(--faint); margin-bottom:3px;">${e.date}</div>
+      <div style="font-size:13px; color:var(--text); white-space:pre-wrap;">${escapeHtml(e.response)}</div>
+    </div>`).join('');
 }
 
 function toggleReference(){
@@ -1676,22 +2302,28 @@ function saveExposureRep(){
   const trigger = document.getElementById('expTrigger').value.trim();
   const pre = document.getElementById('preAnxiety').value;
   const post = document.getElementById('postAnxiety').value;
+  const willingness = document.getElementById('willingness').value;
   const droppedSafety = document.getElementById('droppedSafetyCheck').checked;
   const defusion = document.getElementById('defusionNote').value.trim();
   if(!trigger) return toast('Describe what you did');
 
-  exposureReps.push({ trigger, pre, post, droppedSafety, defusion });
+  // First rep of the day also flips on the separate +10% "done today" bonus
+  // (see getNetDailyScoreForDate) on top of its own +5% — later reps only
+  // add the +5% per-rep amount, so the toast reflects whichever applies.
+  const isFirstRepToday = !exposureDoneToday;
+  exposureReps.push({ trigger, pre, post, willingness, droppedSafety, defusion });
   exposureDoneToday = true;
   if(!exposureDaysLog.includes(todayStr)) exposureDaysLog.push(todayStr);
 
   document.getElementById('expTrigger').value='';
   document.getElementById('defusionNote').value='';
   document.getElementById('droppedSafetyCheck').checked=false;
+  document.getElementById('willingness').value='7';
 
   persistTrackerState();
   renderExposureList();
   updateUI();
-  toast('Exposure logged (+10%)');
+  toast(isFirstRepToday ? 'Exposure logged (+15% — first rep today)' : 'Exposure logged (+5%)');
 }
 function renderExposureList(){
   const list = document.getElementById('exposureList');
@@ -1700,7 +2332,7 @@ function renderExposureList(){
   list.innerHTML = exposureReps.map(r=>`
     <div class="exp-item">
       <b>${escapeHtml(r.trigger)}</b>
-      <div class="meta">Anxiety ${r.pre}/10 \u2192 ${r.post}/10 ${r.droppedSafety?'<span class="tag">&middot; safety behaviors dropped</span>':''}</div>
+      <div class="meta">Anxiety ${r.pre}/10 \u2192 ${r.post}/10${r.willingness!==undefined?` &middot; willingness ${r.willingness}/10`:''} ${r.droppedSafety?'<span class="tag">&middot; safety behaviors dropped</span>':''}</div>
       ${r.defusion ? `<div class="note">"${escapeHtml(r.defusion)}"</div>` : ''}
     </div>
   `).join('');
@@ -1771,6 +2403,7 @@ function showTab(tabId, btn){
   document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById(tabId).classList.remove('hidden');
   btn.classList.add('active');
+  if(tabId==='garden') renderGarden();
 }
 
 window.addEventListener('beforeunload', persistTrackerState);
