@@ -8,11 +8,6 @@
 <meta name="theme-color" content="#161d14" />
 <link rel="icon" href="icon-192.png" />
 <link rel="apple-touch-icon" href="icon-192.png" />
-<!-- Puter.js: gives the AI reflection card free access to Claude with no
-     API key and no billing — usage rides the visitor's own free Puter
-     account (sign-in happens automatically, once, the first time the
-     "Analyze my entries" button is used). -->
-<script src="https://js.puter.com/v2/"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -304,7 +299,7 @@
         <h3>Ambient sound</h3>
         <button class="icon-btn" aria-label="Toggle ambient sound panel" onclick="toggleAmbientPanel()">⋯</button>
       </div>
-      <p class="subnote" id="ambientSubnote">Plays audio only (no video window) from YouTube in the background while you work — needs an internet connection.</p>
+      <p class="subnote" id="ambientSubnote">Plays audio only (no video window) from YouTube — or a direct audio file link — in the background while you work. Needs an internet connection. If YouTube stays silent inside a wrapped APK, add a custom sound below with a direct .mp3/.wav/.ogg link instead; that format works in far more WebViews.</p>
       <div id="ambientPanel">
         <label>Quick presets</label>
         <select id="ambientPreset" onchange="onAmbientPresetChange()">
@@ -331,8 +326,8 @@
             <input type="hidden" id="editSoundId" value="" />
             <label>Name</label>
             <input type="text" id="soundNameInput" placeholder="e.g. Study playlist" />
-            <label style="margin-top:6px; display:block;">YouTube link or video ID</label>
-            <input type="text" id="soundLinkInput" placeholder="https://youtube.com/watch?v=..." />
+            <label style="margin-top:6px; display:block;">YouTube link/ID, or a direct audio file link</label>
+            <input type="text" id="soundLinkInput" placeholder="https://youtube.com/watch?v=... or https://.../rain.mp3" />
             <div style="display:flex; gap:8px; margin-top:8px;">
               <button class="btn small block" onclick="saveSoundFromForm()">Save</button>
               <button class="btn ghost small block" onclick="toggleSoundForm()">Cancel</button>
@@ -544,14 +539,17 @@
 
     <div class="section-heading"><h2>AI reflection</h2></div>
     <div class="card">
-      <p class="subnote">Sends today's values, ladder, exposure reps and check-in note to Claude — free, via a Puter.js account instead of a paid API key — for a short ACT-informed reflection. Not therapy, not a diagnosis, just a second perspective.</p>
-      <button class="btn ghost small" style="margin-top:8px;" onclick="toggleAISettings()">AI settings</button>
+      <p class="subnote">Sends today's values, ladder, exposure reps and check-in note to Google's free Gemini API — using your own free API key, stored only on this device — for a short ACT-informed reflection. Not therapy, not a diagnosis, just a second perspective.</p>
+      <button class="btn ghost small" style="margin-top:8px;" onclick="toggleAISettings()">API key settings</button>
       <div id="aiSettingsBox" class="hidden" style="margin-top:8px;">
-        <label>Model</label>
-        <input type="text" id="aiModel" placeholder="claude-sonnet-5" />
+        <label>Google AI Studio API key (free, no card)</label>
+        <input type="password" id="aiApiKey" placeholder="AIza..." />
+        <label style="margin-top:8px; display:block;">Model</label>
+        <input type="text" id="aiModel" placeholder="gemini-2.5-flash" />
         <button class="btn small" style="margin-top:8px;" onclick="saveAISettings()">Save</button>
         <button class="btn ghost small" style="margin-top:8px;" onclick="testAIConnection()">Test connection</button>
-        <p class="subnote" style="margin-top:6px;">No API key needed — the first time you analyze or test, a free Puter.com sign-in popup appears once; after that it's free and unlimited under Puter's "you sign in, they cover the model cost" plan. If you're running this through a "website to APK" wrapper and the popup or request silently fails while the same page works fine in Chrome, the wrapper's WebView is likely blocking it — not this app. Rebuilding the APK as a Trusted Web Activity / Bubblewrap build (which is just Chrome) is the most reliable fix.</p>
+        <p class="subnote" style="margin-top:6px;">Get a free key at aistudio.google.com (sign in with any Google account, click "Get API key" — no credit card, no billing setup). Paste it above, once. Stored only in this app's local storage on this device.</p>
+        <p class="subnote" style="margin-top:6px;">This is a plain network request with your key attached — no popup, no sign-in window — so it should work inside a wrapped APK where popup-based sign-ins (like the earlier Puter.js version) get stuck on a blank tab. If it still fails only inside the APK and not in Chrome, the wrapper is blocking outbound network requests entirely, which usually means switching to a Trusted Web Activity build.</p>
       </div>
       <button class="btn block" style="margin-top:12px;" id="aiAnalyzeBtn" onclick="analyzeWithAI()">Analyze my entries</button>
       <div id="aiOutput" class="hidden" style="margin-top:12px; padding:10px; background:var(--surface-2); border-radius:9px; font-size:13px; white-space:pre-wrap;"></div>
@@ -713,10 +711,11 @@ let taskHistory = {};
 let reflections = {};
 let dharmaLog = [];
 let customSounds = []; // user-added {id, name, videoId} ambient sounds
-let armedVideoId = null; // currently selected/armed YouTube video id
+let armedSrc = null; // currently selected/armed sound — a YouTube video id or a direct audio file URL, depending on armedKind
+let armedKind = null; // 'yt' | 'audio'
 let armedLabel = '';
 let gardenScope = 'day';
-let aiSettings = { model:'claude-sonnet-5' }; // no key — puter.ai.chat() handles auth via the visitor's free Puter account
+let aiSettings = { apiKey:'', model:'gemini-2.5-flash' }; // free Google AI Studio key — plain fetch, no popup, so it works inside restrictive WebView wrappers
 let aiInsights = [];
 let lastAIResponse = '';
 let kindnessStep = 0;
@@ -935,7 +934,7 @@ const REFERENCE = [
   reflections = await loadJSON('reflections', {});
   dharmaLog = await loadJSON('dharma-log', []);
   customSounds = await loadJSON('ambient-sounds', []);
-  aiSettings = await loadJSON('ai-settings', { model:'claude-sonnet-5' });
+  aiSettings = await loadJSON('ai-settings', { apiKey:'', model:'gemini-2.5-flash' });
   aiInsights = await loadJSON('ai-insights', []);
 
   // Catch up on a day that finished while the app was closed. Without this,
@@ -1152,14 +1151,23 @@ function toggleDailyExposure(){
 }
 
 /* ============================================================
-   AMBIENT SOUND (YouTube) — plays a looping ambient/lofi video
-   through the YouTube IFrame Player API for background sound
-   while you work. Requires an internet connection; like the
-   task timers, most phones suspend it once the screen locks.
+   AMBIENT SOUND — plays either a looping YouTube video (audio only,
+   via the YouTube IFrame Player API) or a direct audio file link
+   (via a plain HTML5 <audio> element) for background sound while you
+   work. The direct-audio path exists because a YouTube iframe needs
+   third-party cookies/postMessage support that some wrapped-APK
+   WebViews block outright, while a plain <audio src="..."> tag is
+   basic media playback that virtually every WebView supports — so if
+   YouTube presets stay silent in your APK, add a custom sound with a
+   direct .mp3/.wav/.ogg/.m4a link instead (same "My sounds" form,
+   just paste a direct file link instead of a YouTube one). Requires
+   an internet connection either way; like the task timers, most
+   phones suspend playback once the screen locks.
    ============================================================ */
 let ytPlayer = null;
 let ytApiLoading = false;
 let ytApiCallbacks = [];
+let htmlAudio = null; // the <audio> element used for direct-file sounds
 let ambientPlaying = false;
 
 function loadYouTubeAPI(cb){
@@ -1191,6 +1199,15 @@ function extractYouTubeId(input){
   return null;
 }
 
+function isDirectAudioUrl(input){
+  if(!input) return null;
+  const trimmed = input.trim();
+  if(!/^https?:\/\//i.test(trimmed)) return null;
+  // strip query string before checking the extension
+  const path = trimmed.split(/[?#]/)[0];
+  return /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(path) ? trimmed : null;
+}
+
 function toggleAmbientPanel(){
   document.getElementById('ambientPanel').classList.toggle('hidden');
 }
@@ -1198,7 +1215,8 @@ function toggleAmbientPanel(){
 function onAmbientPresetChange(){
   const sel = document.getElementById('ambientPreset');
   const val = sel.value;
-  armedVideoId = val || null;
+  armedSrc = val || null;
+  armedKind = val ? 'yt' : null;
   armedLabel = val ? sel.options[sel.selectedIndex].text : '';
   document.getElementById('ambientPlayBtn').disabled = !val;
   updateNowPlaying();
@@ -1206,19 +1224,22 @@ function onAmbientPresetChange(){
 }
 
 function toggleAmbientPlayback(){
-  if(ambientPlaying && ytPlayer){
-    ytPlayer.pauseVideo();
+  if(ambientPlaying){
+    if(armedKind==='yt' && ytPlayer) ytPlayer.pauseVideo();
+    if(armedKind==='audio' && htmlAudio) htmlAudio.pause();
     ambientPlaying = false;
     document.getElementById('ambientPlayBtn').innerText = 'Play';
     updateNowPlaying();
     renderSoundList();
     return;
   }
-  if(!armedVideoId){ toast('Pick a sound first'); return; }
-  loadYouTubeAPI(()=>startAmbientPlayer(armedVideoId));
+  if(!armedSrc){ toast('Pick a sound first'); return; }
+  if(armedKind==='audio') startDirectAudioPlayer(armedSrc);
+  else loadYouTubeAPI(()=>startYouTubePlayer(armedSrc));
 }
 
-function startAmbientPlayer(videoId){
+function startYouTubePlayer(videoId){
+  if(htmlAudio) htmlAudio.pause(); // stop any direct-file sound before switching
   if(ytPlayer && ytPlayer.loadVideoById){
     ytPlayer.loadVideoById(videoId);
     ambientPlaying = true;
@@ -1241,13 +1262,36 @@ function startAmbientPlayer(videoId){
         updateNowPlaying();
         renderSoundList();
       },
-      onError: ()=> toast('That video could not be played — try another link.')
+      onError: ()=> toast('That video could not be played — try another link, or a direct audio file link instead.')
     }
   });
 }
 
+function startDirectAudioPlayer(url){
+  if(ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo(); // stop any YouTube sound before switching
+  if(!htmlAudio){
+    htmlAudio = new Audio();
+    htmlAudio.loop = true;
+    htmlAudio.addEventListener('error', ()=> toast('That audio file could not be played — check the link.'));
+  }
+  if(htmlAudio.src !== url) htmlAudio.src = url;
+  htmlAudio.volume = (parseInt(document.getElementById('ambientVolume').value)||60)/100;
+  htmlAudio.play().then(()=>{
+    ambientPlaying = true;
+    document.getElementById('ambientPlayBtn').innerText = 'Pause';
+    updateNowPlaying();
+    renderSoundList();
+  }).catch(()=>{
+    // Autoplay was blocked (needs a direct user tap) — the Play button
+    // itself is a user tap, so this mainly happens on the very first
+    // programmatic call; tapping Play again resolves it.
+    toast('Tap Play again to start audio');
+  });
+}
+
 function setAmbientVolume(v){
-  if(ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(parseInt(v));
+  if(armedKind==='yt' && ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(parseInt(v));
+  if(armedKind==='audio' && htmlAudio) htmlAudio.volume = parseInt(v)/100;
 }
 
 function updateNowPlaying(){
@@ -1268,21 +1312,22 @@ function editCustomSound(id){
   if(!s) return;
   document.getElementById('editSoundId').value = id;
   document.getElementById('soundNameInput').value = s.name;
-  document.getElementById('soundLinkInput').value = s.videoId;
+  document.getElementById('soundLinkInput').value = s.videoId || s.audioUrl || '';
   document.getElementById('soundFormCard').classList.remove('hidden');
 }
 function saveSoundFromForm(){
   const editId = document.getElementById('editSoundId').value;
   const name = document.getElementById('soundNameInput').value.trim();
   const link = document.getElementById('soundLinkInput').value.trim();
-  const videoId = extractYouTubeId(link);
   if(!name) return toast('Name it first');
-  if(!videoId) return toast('Could not read a YouTube video from that link');
+  const videoId = extractYouTubeId(link);
+  const audioUrl = videoId ? null : isDirectAudioUrl(link);
+  if(!videoId && !audioUrl) return toast('Paste a YouTube link/ID, or a direct audio file link (.mp3, .wav, .ogg, .m4a)');
   if(editId){
     const s = customSounds.find(x=>x.id===editId);
-    if(s){ s.name=name; s.videoId=videoId; }
+    if(s){ s.name=name; s.videoId=videoId||undefined; s.audioUrl=audioUrl||undefined; }
   }else{
-    customSounds.push({ id:'snd'+Date.now(), name, videoId });
+    customSounds.push({ id:'snd'+Date.now(), name, videoId: videoId||undefined, audioUrl: audioUrl||undefined });
   }
   saveJSON('ambient-sounds', customSounds);
   document.getElementById('soundFormCard').classList.add('hidden');
@@ -1292,7 +1337,7 @@ function saveSoundFromForm(){
 function deleteCustomSound(id){
   customSounds = customSounds.filter(x=>x.id!==id);
   saveJSON('ambient-sounds', customSounds);
-  if(armedVideoId && !customSounds.find(s=>s.videoId===armedVideoId) && ambientPlaying){
+  if(armedSrc && !customSounds.find(s=>s.videoId===armedSrc || s.audioUrl===armedSrc) && ambientPlaying){
     // the sound currently playing was just deleted — let it keep playing,
     // it'll just no longer be selectable/editable from the list.
   }
@@ -1301,15 +1346,19 @@ function deleteCustomSound(id){
 function playCustomSound(id){
   const s = customSounds.find(x=>x.id===id);
   if(!s) return;
-  if(ambientPlaying && armedVideoId===s.videoId){
+  const kind = s.audioUrl ? 'audio' : 'yt';
+  const src = s.audioUrl || s.videoId;
+  if(ambientPlaying && armedKind===kind && armedSrc===src){
     toggleAmbientPlayback();
     return;
   }
-  armedVideoId = s.videoId;
+  armedSrc = src;
+  armedKind = kind;
   armedLabel = s.name;
   document.getElementById('ambientPreset').value = '';
   document.getElementById('ambientPlayBtn').disabled = false;
-  loadYouTubeAPI(()=>startAmbientPlayer(s.videoId));
+  if(kind==='audio') startDirectAudioPlayer(src);
+  else loadYouTubeAPI(()=>startYouTubePlayer(src));
 }
 function renderSoundList(){
   const list = document.getElementById('soundList');
@@ -1317,7 +1366,9 @@ function renderSoundList(){
   if(!customSounds.length){ list.innerHTML='No custom sounds yet.'; list.className='empty'; return; }
   list.className='';
   list.innerHTML = customSounds.map(s=>{
-    const isPlaying = ambientPlaying && armedVideoId===s.videoId;
+    const kind = s.audioUrl ? 'audio' : 'yt';
+    const src = s.audioUrl || s.videoId;
+    const isPlaying = ambientPlaying && armedKind===kind && armedSrc===src;
     return `<div class="sound-row ${isPlaying?'active':''}">
       <button class="icon-btn" style="font-size:15px;" onclick="playCustomSound('${s.id}')" aria-label="Play">${isPlaying?'⏸':'▶'}</button>
       <span class="sname">${escapeHtml(s.name)}</span>
@@ -2123,21 +2174,25 @@ function saveActNote(id){
 }
 
 /* ============================================================
-   AI REFLECTION — asks Claude for a short, ACT-informed reflection
-   on today's entries via Puter.js (js.puter.com), which gives free,
-   keyless access to Claude models: usage is covered by the visitor's
-   own free Puter account rather than a paid Anthropic API key. Some
-   networks, WebView wrappers, or ad/script blockers may block the
-   puter.com domain, in which case you'll see an error toast rather
-   than a silent failure.
+   AI REFLECTION — reads your own free Google AI Studio (Gemini) API
+   key, kept only on this device, and asks Gemini for a short,
+   ACT-informed reflection on today's entries. This is a plain
+   fetch() POST with the key attached as a header — no popup, no
+   sign-in window, no third-party domain navigation — specifically
+   because popup-based auth (an earlier version of this used Puter.js)
+   gets stuck on a blank tab inside most wrapped-APK WebViews. A
+   plain network request is far more likely to survive that wrapper,
+   as long as the WebView allows outbound internet access at all.
    ============================================================ */
 function toggleAISettings(){
   const box = document.getElementById('aiSettingsBox');
   box.classList.toggle('hidden');
-  document.getElementById('aiModel').value = aiSettings.model || 'claude-sonnet-5';
+  document.getElementById('aiApiKey').value = aiSettings.apiKey || '';
+  document.getElementById('aiModel').value = aiSettings.model || 'gemini-2.5-flash';
 }
 function saveAISettings(){
-  aiSettings.model = document.getElementById('aiModel').value.trim() || 'claude-sonnet-5';
+  aiSettings.apiKey = document.getElementById('aiApiKey').value.trim();
+  aiSettings.model = document.getElementById('aiModel').value.trim() || 'gemini-2.5-flash';
   saveJSON('ai-settings', aiSettings);
   toast('Saved locally');
 }
@@ -2166,46 +2221,66 @@ You're a warm ACT-informed reflection voice inside a self-tracking app for someo
 Entries:
 ${summary}`;
 }
-async function callClaude(messageText, maxTokens){
-  if(typeof puter === 'undefined' || !puter.ai || !puter.ai.chat){
-    throw new Error('Puter.js did not load — check your internet connection, or that this device/wrapper isn\'t blocking js.puter.com.');
-  }
-  const timeoutMs = 30000;
-  const timeout = new Promise((_,reject)=>setTimeout(()=>reject(new Error('Timed out waiting for a response. If this keeps happening on the APK build but not in a normal browser, the WebView is likely blocking the puter.com popup/request.')), timeoutMs));
+function geminiEndpoint(){
+  const model = aiSettings.model || 'gemini-2.5-flash';
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+}
+async function callAI(messageText, maxTokens){
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(), 25000);
   try{
-    const response = await Promise.race([
-      puter.ai.chat(messageText, {
-        model: aiSettings.model || 'claude-sonnet-5',
-        max_tokens: maxTokens,
-        normalize: true // flattens Claude's native content-block array into a plain message.content string
+    const res = await fetch(geminiEndpoint(), {
+      method:'POST',
+      mode:'cors',
+      headers:{
+        'Content-Type':'application/json',
+        'x-goog-api-key': aiSettings.apiKey
+      },
+      body: JSON.stringify({
+        contents: [{ role:'user', parts:[{ text: messageText }] }],
+        generationConfig: { maxOutputTokens: maxTokens }
       }),
-      timeout
-    ]);
-    const text = response && response.message && typeof response.message.content === 'string'
-      ? response.message.content
-      : (typeof response === 'string' ? response : '');
-    return text.trim();
+      signal: controller.signal
+    });
+    let data;
+    try{ data = await res.json(); }
+    catch(parseErr){ throw new Error(`Server responded with status ${res.status} but no readable JSON — likely a wrapper/proxy intercepting the request, not Google itself.`); }
+    if(!res.ok) throw new Error((data && data.error && data.error.message) || `Request failed (${res.status})`);
+    const cand = data.candidates && data.candidates[0];
+    const parts = cand && cand.content && cand.content.parts;
+    return (parts || []).map(p=>p.text || '').join('\n').trim();
   }catch(e){
-    if(e && e.message) throw e;
-    throw new Error('Could not reach Puter\'s AI service — check your connection and that puter.com isn\'t blocked.');
+    if(e.name === 'AbortError'){
+      throw new Error('Timed out waiting for a response. If this keeps happening on the APK build but not in a normal browser, the WebView may be blocking outbound network requests entirely.');
+    }
+    if(e instanceof TypeError){
+      // The request never actually left the device — CORS rejection, no
+      // network permission, or a wrapper sandboxing outbound calls.
+      throw new Error('Network request never went through (no response at all). In a normal mobile browser this call works; inside a wrapped APK it usually means the WebView is blocking outbound requests to a domain other than the one it was pointed at. Switching to a Trusted Web Activity build is the most reliable fix.');
+    }
+    throw e;
+  }finally{
+    clearTimeout(timeout);
   }
 }
 async function testAIConnection(){
+  if(!aiSettings.apiKey){ toast('Add your API key first'); return; }
   toast('Testing\u2026');
   try{
-    const text = await callClaude('Reply with just the word "connected".', 10);
+    const text = await callAI('Reply with just the word "connected".', 10);
     toast(text ? 'Connection OK \u2014 got a response back' : 'Reached the server but got an empty reply');
   }catch(e){
     toast('Test failed: ' + e.message);
   }
 }
 async function analyzeWithAI(){
+  if(!aiSettings.apiKey){ toast('Add your API key in settings first'); toggleAISettings(); return; }
   const btn = document.getElementById('aiAnalyzeBtn');
   btn.disabled = true; btn.innerText = 'Thinking\u2026';
   const summary = buildACTSummary();
   const prompt = buildACTPrompt(summary);
   try{
-    const text = await callClaude(prompt, 500);
+    const text = await callAI(prompt, 500);
     lastAIResponse = text || 'No response text came back.';
     const out = document.getElementById('aiOutput');
     out.innerText = lastAIResponse;
