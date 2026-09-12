@@ -67,7 +67,7 @@
   .card h3{ font-size:16px; margin-bottom: 4px; }
   .subnote{ color:var(--subtext); font-size:12.5px; line-height:1.5; }
 
-  .section-heading{ display:flex; justify-content:space-between; align-items:baseline; margin: 22px 0 10px; }
+  .section-heading{ display:flex; justify-content:space-between; align-items:center; margin: 22px 0 10px; gap:8px; }
   .section-heading h2{ font-size: 19px; }
 
   button{ font-family:'Inter'; }
@@ -83,6 +83,16 @@
   .icon-btn:hover{ background:var(--surface-2); color:var(--text); }
   .icon-btn.timer{ font-size:13px; padding:4px 7px; border:1px solid var(--line); }
   .icon-btn.timer.on{ color:var(--gold); border-color:var(--gold); }
+  .x-clear-btn{ background:transparent; border:none; color:var(--faint); font-size:14px; cursor:pointer; padding:3px 7px; line-height:1; border-radius:6px; flex-shrink:0; }
+  .x-clear-btn:hover{ color:var(--rose); background:var(--surface-2); }
+  .section-heading{ position:relative; }
+  .section-menu-wrap{ position:relative; flex-shrink:0; }
+  .more-btn{ background:transparent; border:none; color:var(--faint); font-size:18px; cursor:pointer; padding:2px 9px; line-height:1; border-radius:6px; letter-spacing:1px; }
+  .more-btn:hover{ background:var(--surface-2); color:var(--text); }
+  .section-menu{ position:absolute; right:0; top:calc(100% + 4px); background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:4px; z-index:30; min-width:180px; box-shadow:0 10px 24px -10px rgba(0,0,0,.55); }
+  .section-menu button{ display:flex; align-items:center; gap:7px; width:100%; text-align:left; background:transparent; border:none; color:var(--text); font-size:12.5px; font-weight:500; padding:9px 10px; border-radius:7px; cursor:pointer; font-family:'Inter'; }
+  .section-menu button:hover{ background:var(--surface); }
+  .section-menu button.danger-item{ color:var(--rose); }
 
   .active-clock-card{ background: linear-gradient(160deg, #2c3b23, #1a2116); border: 1px solid var(--moss-deep); text-align:center; }
   .active-clock-card .eyebrow{ color:var(--moss); font-size:12px; font-weight:600; }
@@ -337,14 +347,20 @@
     </div>
 
     <div class="card">
-      <h3>Exposure rep, done today?</h3>
+      <div style="display:flex; justify-content:space-between; align-items:baseline;">
+        <h3>Exposure rep, done today?</h3>
+        <button class="x-clear-btn" title="Delete today's exposure entries" onclick="clearTodaySection('exposure')">✕</button>
+      </div>
       <p class="subnote" style="margin-bottom:2px;">One small social-anxiety exposure counts — see it logged properly in the ACT Toolkit.</p>
       <button id="dashExposureBtn" class="toggle-btn" style="margin-top:10px;" onclick="toggleDailyExposure()">Not yet today</button>
     </div>
 
     <div class="section-heading">
       <h2>Growth & career tasks</h2>
-      <button class="btn ghost small" onclick="toggleAddTaskForm()">+ Add</button>
+      <div style="display:flex; align-items:center; gap:2px;">
+        <button class="x-clear-btn" title="Delete today's logged task time" onclick="clearTodaySection('tasks')">✕</button>
+        <button class="btn ghost small" onclick="toggleAddTaskForm()">+ Add</button>
+      </div>
     </div>
 
     <div id="addTaskCard" class="card hidden">
@@ -364,7 +380,7 @@
 
     <div id="tasksContainer"></div>
 
-    <div class="section-heading"><h2>Escapism & unplanned screen time</h2></div>
+    <div class="section-heading"><h2>Escapism & unplanned screen time</h2><button class="x-clear-btn" title="Delete today's escapism entry" onclick="clearTodaySection('escapism')">✕</button></div>
     <div class="card escapism-card">
       <div style="font-weight:600; font-size:14.5px;">Gaming / phone drift</div>
       <p class="subnote">−1% from today's score for every 2 minutes over.</p>
@@ -517,8 +533,19 @@
     </div>
 
     <div class="card">
-      <h3>Today's exposures</h3>
-      <div id="exposureList" class="empty">None logged today.</div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>Today's exposures</h3>
+        <div class="section-menu-wrap">
+          <button class="more-btn" title="Options" onclick="toggleSectionMenu(event,'exposure')">⋯</button>
+          <div class="section-menu hidden" id="menu-exposure">
+            <button class="danger-item" onclick="runDeleteToday(event,'exposure')">🗑 Delete today's entries</button>
+            <button onclick="toggleSectionSkip(event,'exposure')"><span id="skiplabel-exposure">Skip section</span></button>
+          </div>
+        </div>
+      </div>
+      <div id="body-exposure">
+        <div id="exposureList" class="empty">None logged today.</div>
+      </div>
     </div>
 
     <div class="card">
@@ -528,17 +555,39 @@
       <div id="dayLookupBody" style="margin-top:10px;"></div>
     </div>
 
-    <div class="section-heading"><h2>What you're moving toward</h2></div>
+    <div class="section-heading">
+      <h2>What you're moving toward</h2>
+      <div class="section-menu-wrap">
+        <button class="more-btn" title="Options" onclick="toggleSectionMenu(event,'values')">⋯</button>
+        <div class="section-menu hidden" id="menu-values">
+          <button class="danger-item" onclick="runDeleteToday(event,'values')">🗑 Delete today's entries</button>
+          <button onclick="toggleSectionSkip(event,'values')"><span id="skiplabel-values">Skip section</span></button>
+        </div>
+      </div>
+    </div>
     <div class="card">
       <p class="subnote">Not a mood to chase — a direction worth choosing, especially on the hard days.</p>
-      <div id="valuesArea"></div>
+      <div id="body-values">
+        <div id="valuesArea"></div>
+      </div>
     </div>
 
-    <div class="section-heading"><h2>Steady, honest check-in</h2></div>
+    <div class="section-heading">
+      <h2>Steady, honest check-in</h2>
+      <div class="section-menu-wrap">
+        <button class="more-btn" title="Options" onclick="toggleSectionMenu(event,'checkin')">⋯</button>
+        <div class="section-menu hidden" id="menu-checkin">
+          <button class="danger-item" onclick="runDeleteToday(event,'checkin')">🗑 Delete today's entries</button>
+          <button onclick="toggleSectionSkip(event,'checkin')"><span id="skiplabel-checkin">Skip section</span></button>
+        </div>
+      </div>
+    </div>
     <div class="card">
-      <label>What have you tried to make the anxiety go away — and did it actually last?</label>
-      <textarea id="note-hopelessness" rows="3" placeholder="e.g. Over-preparing every sentence in advance — helps for five minutes, exhausting, doesn't hold."></textarea>
-      <button class="btn small" id="hopelessnessSaveBtn" style="margin-top:8px;" onclick="saveActNote('hopelessness')">Save note</button>
+      <div id="body-checkin">
+        <label>What have you tried to make the anxiety go away — and did it actually last?</label>
+        <textarea id="note-hopelessness" rows="3" placeholder="e.g. Over-preparing every sentence in advance — helps for five minutes, exhausting, doesn't hold."></textarea>
+        <button class="btn small" id="hopelessnessSaveBtn" style="margin-top:8px;" onclick="saveActNote('hopelessness')">Save note</button>
+      </div>
     </div>
 
     <div class="section-heading"><h2>AI reflection</h2></div>
@@ -553,9 +602,22 @@
       <button class="btn small hidden" id="aiSaveBtn" style="margin-top:8px;" onclick="saveAIInsight()">Save this reflection</button>
     </div>
     <div class="card">
-      <h3>Saved reflections</h3>
-      <input type="date" id="aiHistoryDate" onchange="renderAIInsights()" style="margin-bottom:8px;" />
-      <div id="aiInsightsList" class="empty">None saved yet.</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <h3>Saved reflections</h3>
+        <div style="display:flex; align-items:center; gap:2px;">
+          <button class="btn ghost small" id="aiHistoryToggleBtn" onclick="toggleAIHistoryPanel()">History</button>
+          <div class="section-menu-wrap">
+            <button class="more-btn" title="Options" onclick="toggleSectionMenu(event,'aiReflection')">⋯</button>
+            <div class="section-menu hidden" id="menu-aiReflection">
+              <button class="danger-item" onclick="runDeleteToday(event,'aiReflection')">🗑 Delete today's entries</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="aiHistoryPanel" class="hidden" style="margin-top:8px;">
+        <input type="date" id="aiHistoryDate" onchange="renderAIInsights()" style="margin-bottom:8px;" />
+        <div id="aiInsightsList" class="empty">None saved yet.</div>
+      </div>
     </div>
 
 
@@ -567,18 +629,36 @@
 
   <!-- ============ REFLECTION ============ -->
   <div id="log" class="tab-content hidden">
-    <div class="section-heading" style="margin-top:0;"><h2>Daily reflection</h2></div>
+    <div class="section-heading" style="margin-top:0;">
+      <h2>Daily reflection</h2>
+      <div class="section-menu-wrap">
+        <button class="more-btn" title="Options" onclick="toggleSectionMenu(event,'dailyReflection')">⋯</button>
+        <div class="section-menu hidden" id="menu-dailyReflection">
+          <button class="danger-item" onclick="runDeleteToday(event,'dailyReflection')">🗑 Delete today's entries</button>
+          <button onclick="toggleSectionSkip(event,'dailyReflection')"><span id="skiplabel-dailyReflection">Skip section</span></button>
+        </div>
+      </div>
+    </div>
     <div class="card">
       <label>What threw the day off? (Bad time estimates, avoidance, triggers — just the data, not the verdict.)</label>
       <textarea id="misjudgmentNote" rows="5" placeholder="Record what happened, plainly."></textarea>
       <button class="btn block" style="margin-top:12px;" onclick="saveReflection()">Save reflection</button>
     </div>
-    <div class="card">
+    <div class="card" id="body-dailyReflection">
       <h3>Past reflections</h3>
       <div id="reflectionList" class="empty">Nothing written yet.</div>
     </div>
 
-    <div class="section-heading"><h2>Dharma reflection</h2></div>
+    <div class="section-heading">
+      <h2>Dharma reflection</h2>
+      <div class="section-menu-wrap">
+        <button class="more-btn" title="Options" onclick="toggleSectionMenu(event,'dharma')">⋯</button>
+        <div class="section-menu hidden" id="menu-dharma">
+          <button class="danger-item" onclick="runDeleteToday(event,'dharma')">🗑 Delete today's entries</button>
+          <button onclick="toggleSectionSkip(event,'dharma')"><span id="skiplabel-dharma">Skip section</span></button>
+        </div>
+      </div>
+    </div>
     <div class="card">
       <div class="dharma-header">
         <svg width="30" height="30" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -595,7 +675,7 @@
       <textarea id="dharmaNote" rows="3" placeholder="What came up, what settled, what you're sitting with."></textarea>
       <button class="btn block" style="margin-top:12px;" onclick="saveDharma()">Save</button>
     </div>
-    <div class="card">
+    <div class="card" id="body-dharma">
       <h3>Past entries</h3>
       <div id="dharmaList" class="empty">Nothing written yet.</div>
     </div>
@@ -936,9 +1016,11 @@ const REFERENCE = [
   taskHistory = await loadJSON('task-history', {});
   reflections = await loadJSON('reflections', {});
   dharmaLog = await loadJSON('dharma-log', []);
+  dharmaLog.forEach(e=>{ if(!e.id) e.id = 'dh'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); });
   customSounds = await loadJSON('ambient-sounds', []);
   // ai-settings no longer used (Puter.js handles auth)
   aiInsights = await loadJSON('ai-insights', []);
+  aiInsights.forEach(e=>{ if(!e.id) e.id = 'ai'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); });
   valuesHistory = await loadJSON('values-history', {});
   actNotesHistory = await loadJSON('act-notes-history', {});
   exposureRepsHistory = await loadJSON('exposure-history', []);
@@ -1743,6 +1825,139 @@ function resetCurrentDay(){
   }
 }
 
+/* ---- Per-section "delete today's entries" (small ✕ buttons) ---- */
+/* ---- Generic "..." section menu: Delete today's entries / Skip section ---- */
+let openSectionMenuKind = null;
+
+function closeAllSectionMenus(){
+  document.querySelectorAll('.section-menu').forEach(m=>m.classList.add('hidden'));
+  openSectionMenuKind = null;
+}
+document.addEventListener('click', closeAllSectionMenus);
+
+function toggleSectionMenu(evt, kind){
+  evt.stopPropagation();
+  const wasOpen = openSectionMenuKind === kind;
+  closeAllSectionMenus();
+  if(!wasOpen){
+    const menu = document.getElementById('menu-'+kind);
+    if(menu){ menu.classList.remove('hidden'); openSectionMenuKind = kind; }
+  }
+}
+
+function runDeleteToday(evt, kind){
+  evt.stopPropagation();
+  closeAllSectionMenus();
+  clearTodaySection(kind);
+}
+
+function toggleSectionSkip(evt, kind){
+  evt.stopPropagation();
+  const body = document.getElementById('body-'+kind);
+  const label = document.getElementById('skiplabel-'+kind);
+  if(body){
+    const nowHidden = !body.classList.contains('hidden');
+    body.classList.toggle('hidden', nowHidden);
+    if(label) label.innerText = nowHidden ? 'Show section' : 'Skip section';
+  }
+  closeAllSectionMenus();
+}
+
+function clearTodaySection(kind){
+  const labels = {
+    exposure: "today's exposure entries",
+    tasks: "today's logged task time",
+    escapism: "today's escapism entry",
+    values: "today's intention entry",
+    checkin: "today's check-in note",
+    aiReflection: "today's saved reflection",
+    dailyReflection: "today's daily reflection",
+    dharma: "today's dharma entries"
+  };
+  if(!confirm(`Delete ${labels[kind] || 'today\u2019s entries'}? This can't be undone.`)) return;
+
+  switch(kind){
+    case 'exposure':
+      exposureReps = [];
+      exposureRepsHistory = exposureRepsHistory.filter(r=>r.date!==todayStr);
+      exposureDoneToday = false;
+      exposureDaysLog = exposureDaysLog.filter(d=>d!==todayStr);
+      persistTrackerState();
+      saveJSON('exposure-history', exposureRepsHistory);
+      renderExposureList();
+      renderDayLookup();
+      updateUI();
+      break;
+
+    case 'tasks':
+      stopAllTimers(); // otherwise a running timer re-adds seconds on the very next tick
+      tasks.forEach(t=>{
+        if(t.dailySec) delete t.dailySec[todayStr];
+        (t.subtasks||[]).forEach(s=>{
+          if(s.dailySec) delete s.dailySec[todayStr];
+          if(s.completedDate===todayStr){ s.done=false; delete s.completedDate; }
+        });
+      });
+      persistTrackerState();
+      renderTasks();
+      renderDayLookup();
+      updateUI();
+      break;
+
+    case 'escapism':
+      stopAllTimers(); // otherwise a running timer re-adds seconds on the very next tick
+      escapismSec = 0;
+      delete escapismHistory[todayStr];
+      const stInput = document.getElementById('screenTimeInput');
+      if(stInput) stInput.value = '';
+      persistTrackerState();
+      saveJSON('escapism-history', escapismHistory);
+      renderDayLookup();
+      updateUI();
+      break;
+
+    case 'values':
+      values.intention = '';
+      delete valuesHistory[todayStr];
+      persistTrackerState();
+      saveJSON('values-history', valuesHistory);
+      renderValuesArea();
+      renderDayLookup();
+      break;
+
+    case 'checkin':
+      actNotes.hopelessness = '';
+      if(actNotesHistory[todayStr]) delete actNotesHistory[todayStr].hopelessness;
+      const noteEl = document.getElementById('note-hopelessness');
+      if(noteEl) noteEl.value = '';
+      persistTrackerState();
+      saveJSON('act-notes-history', actNotesHistory);
+      renderDayLookup();
+      break;
+
+    case 'aiReflection':
+      aiInsights = aiInsights.filter(i=>i.date!==todayStr);
+      saveJSON('ai-insights', aiInsights);
+      renderAIInsights();
+      renderDayLookup();
+      break;
+
+    case 'dailyReflection':
+      delete reflections[todayStr];
+      saveJSON('reflections', reflections);
+      renderReflections();
+      renderDayLookup();
+      break;
+
+    case 'dharma':
+      dharmaLog = dharmaLog.filter(e=>e.date!==todayStr);
+      saveJSON('dharma-log', dharmaLog);
+      renderDharmaList();
+      break;
+  }
+  toast('Cleared');
+}
+
 function renderHistoryList(){
   const list = document.getElementById('historyList');
   const entries = Object.entries(savedHistory).sort((a,b)=> a[0]<b[0]?1:-1);
@@ -1766,879 +1981,4 @@ function renderStreaks(){
     const hit = ds===todayStr ? exposureDoneToday : exposureDaysLog.includes(ds);
     if(!hit) break;
     streak++;
-    d.setDate(d.getDate()-1);
-  }
-  document.getElementById('streakExposure').innerText = streak;
-
-  let sum=0, n=0;
-  for(let i=0;i<7;i++){
-    const d2 = new Date(); d2.setDate(d2.getDate()-i);
-    const ds = localDateStr(d2);
-    let sc = ds===todayStr ? getNetDailyScore() : savedHistory[ds];
-    if(sc===undefined) sc = estimateDailyScore(ds);
-    if(sc!==undefined && sc!==null){ sum+=sc; n++; }
-  }
-  document.getElementById('streakAvg').innerText = n ? `${Math.round(sum/n)}%` : '\u2014';
-}
-
-function renderSparkline(){
-  const svg = document.getElementById('sparkline');
-  const points=[];
-  for(let i=13;i>=0;i--){
-    const d = new Date(); d.setDate(d.getDate()-i);
-    const ds = localDateStr(d);
-    const sc = ds===todayStr ? getNetDailyScore() : (savedHistory[ds]!==undefined ? savedHistory[ds] : estimateDailyScore(ds));
-    points.push(sc);
-  }
-  const w=300, h=60, n=points.length, stepX = w/(n-1);
-  let path='', dots='';
-  points.forEach((v,i)=>{
-    const val = v===null ? 0 : v;
-    const x = i*stepX;
-    const y = h - (val/100)*h;
-    path += (i===0?`M${x},${y}`:` L${x},${y}`);
-    if(v!==null) dots += `<circle cx="${x}" cy="${y}" r="2.5" fill="var(--gold)" />`;
-  });
-  svg.innerHTML = `<path d="${path}" fill="none" stroke="var(--moss)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>${dots}`;
-}
-
-function renderTaskCalendar(){
-  const sel = document.getElementById('taskCalSelect');
-  const prevVal = sel.value;
-  sel.innerHTML = tasks.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
-  if(tasks.find(t=>t.id===prevVal)) sel.value = prevVal;
-
-  const grid = document.getElementById('taskCalendarGrid');
-  grid.innerHTML='';
-  ['S','M','T','W','T','F','S'].forEach(d=> grid.innerHTML += `<div class="cal-dow">${d}</div>`);
-
-  const taskId = sel.value;
-  const task = tasks.find(t=>t.id===taskId);
-  if(!task) return;
-
-  const month = parseInt(document.getElementById('calMonthSelect').value);
-  const year = parseInt(document.getElementById('calYearSelect').value);
-  const firstDow = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month+1, 0).getDate();
-  for(let i=0;i<firstDow;i++) grid.innerHTML += `<div></div>`;
-
-  const hist = taskHistory[taskId] || {};
-  for(let i=1;i<=daysInMonth;i++){
-    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
-    let dailySeconds = (task.dailySec && task.dailySec[dateStr]) || 0;
-    let pct = hist[dateStr] !== undefined ? hist[dateStr] : calculateProgressForSeconds(task, dailySeconds);
-    const fillGradient = `conic-gradient(var(--gold) ${pct}%, var(--surface-2) 0)`;
-    const cls = ['day-circle']; if(dateStr===todayStr) cls.push('today');
-    grid.innerHTML += `<div class="${cls.join(' ')}" style="background:${fillGradient};" title="${pct}%">${i}</div>`;
-  }
-}
-
-/* ============================================================
-   GARDEN — one tree per tracked day. Growth comes from how much of
-   that day's tasks got done; heavy escapism/phone drift withers the
-   tree outright, same instinct as the Forest app but pointed at your
-   real tasks instead of just leaving the app alone.
-   ============================================================ */
-function taskGrowthForDate(dateStr){
-  if(!tasks.length) return null;
-  let sum = 0, n = 0;
-  tasks.forEach(t=>{
-    let pct;
-    if(dateStr === todayStr){
-      pct = calculateProgress(t);
-    }else if(taskHistory[t.id] && taskHistory[t.id][dateStr] !== undefined){
-      pct = taskHistory[t.id][dateStr];
-    }else if(t.dailySec && t.dailySec[dateStr] !== undefined){
-      pct = calculateProgressForSeconds(t, t.dailySec[dateStr]);
-    }else{
-      return; // no data for this task on this date — skip it, not a zero
-    }
-    sum += pct; n++;
-  });
-  return n ? Math.round(sum/n) : null;
-}
-function escapismMinutesForDate(dateStr){
-  if(dateStr === todayStr) return Math.floor(escapismSec/60);
-  return escapismHistory[dateStr] !== undefined ? escapismHistory[dateStr] : 0;
-}
-function investedMinutesForTaskDate(task, dateStr){
-  // Best-effort minutes actually invested that day. If we don't have the
-  // exact seconds (e.g. an older saved day that only kept a percentage),
-  // fall back to the task's target — it hit 100%, so it took at least that.
-  if(task.dailySec && task.dailySec[dateStr] !== undefined) return Math.round(task.dailySec[dateStr]/60);
-  return task.target;
-}
-function hashStr(s){
-  let h = 0;
-  for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) | 0; }
-  return Math.abs(h);
-}
-function gardenTreeVisual(progress, minutes){
-  // Growth follows the same daily progress the task card shows.
-  // The minutes are still used to make completed trees slightly more substantial.
-  if(progress >= 100) return { emoji: TREE_EMOJI[4], size: Math.min(58, 42 + Math.round(Math.min(minutes,120)/20)) };
-  if(progress >= 75)  return { emoji: TREE_EMOJI[3], size: 44 };
-  if(progress >= 50)  return { emoji: TREE_EMOJI[2], size: 36 };
-  if(progress >= 20)  return { emoji: TREE_EMOJI[1], size: 29 };
-  return { emoji: TREE_EMOJI[0], size: 24 };
-}
-/* ============================================================
-   GARDEN EVENTS — one growing plant per task/subtask.
-   Today includes in-progress work so the garden changes live with
-   the timer. Older dates keep completed plantings for a clean history.
-   ============================================================ */
-function gardenEventsForScope(scope){
-  const dates = datesForGardenScope(scope);
-  const dateSet = new Set(dates);
-  const events = [];
-  tasks.forEach(t=>{
-    dates.forEach(dateStr=>{
-      const seconds = (t.dailySec && t.dailySec[dateStr]) || 0;
-      let pct;
-      if(dateStr === todayStr) pct = calculateProgress(t);
-      else if(taskHistory[t.id] && taskHistory[t.id][dateStr] !== undefined) pct = taskHistory[t.id][dateStr];
-      else if(seconds > 0) pct = calculateProgressForSeconds(t, seconds);
-      else return;
-      // Today: show a plant as soon as the timer has actually started.
-      // Older ranges: keep the garden about completed work.
-      if((dateStr === todayStr && seconds > 0) || (dateStr !== todayStr && pct >= 100)){
-        events.push({
-          id: t.id+'|'+dateStr,
-          label: t.name,
-          dateStr,
-          minutes: Math.max(1, Math.round(investedMinutesForTaskDate(t, dateStr))),
-          progress: pct,
-          growing: dateStr === todayStr && pct < 100,
-          withered: escapismMinutesForDate(dateStr) >= WITHER_MIN
-        });
-      }
-    });
-    (t.subtasks||[]).forEach(s=>{
-      const d = s.completedDate || (todayStr && s.dailySec && (s.dailySec[todayStr]||0) > 0 ? todayStr : null);
-      if(!d || (scope !== 'all' && !dateSet.has(d))) return;
-      const mins = Math.max(1, Math.round((s.elapsedSec||0)/60));
-      const pct = s.done ? 100 : Math.min(99, Math.round((mins / 15) * 100));
-      if(s.done || (d === todayStr && mins > 0)){
-        events.push({
-          id:s.id, label:s.text, dateStr:d, minutes:mins, progress:pct,
-          growing:d === todayStr && !s.done,
-          withered:escapismMinutesForDate(d) >= WITHER_MIN
-        });
-      }
-    });
-  });
-  events.sort((a,b)=> (a.dateStr||'').localeCompare(b.dateStr||''));
-  return events;
-}
-function datesForGardenScope(scope){
-  const dates = [];
-  if(scope==='day') dates.push(todayStr);
-  else if(scope==='week'){
-    for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); dates.push(localDateStr(d)); }
-  }else if(scope==='month'){
-    const now=new Date(), year=now.getFullYear(), month=now.getMonth();
-    const daysInMonth=new Date(year,month+1,0).getDate();
-    for(let i=1;i<=daysInMonth;i++){ const d=new Date(year,month,i); if(d>now) break; dates.push(localDateStr(d)); }
-  }else{
-    const keys=new Set([...Object.keys(savedHistory),todayStr]);
-    dates.push(...Array.from(keys).sort());
-  }
-  return dates;
-}
-/* One calm summary tree per day (instead of one per task/subtask) —
-   used for week/month/all so a busy history doesn't flood the plot.
-   "Today" keeps the detailed per-task view since there's only one day
-   of icons to show. This reuses the same per-day-progress idea the
-   original taskGrowthForDate() was set up for, but also folds in
-   subtasks and actual minutes invested so the tree size/withering
-   still line up with the detailed view. */
-function gardenDaySummary(dateStr){
-  let sum=0, n=0, minutes=0;
-  tasks.forEach(t=>{
-    let pct;
-    if(dateStr===todayStr) pct=calculateProgress(t);
-    else if(taskHistory[t.id] && taskHistory[t.id][dateStr]!==undefined) pct=taskHistory[t.id][dateStr];
-    else if(t.dailySec && t.dailySec[dateStr]!==undefined) pct=calculateProgressForSeconds(t, t.dailySec[dateStr]);
-    else pct=undefined;
-    if(pct!==undefined){ sum+=pct; n++; minutes+=investedMinutesForTaskDate(t, dateStr); }
-    (t.subtasks||[]).forEach(s=>{
-      const d = s.completedDate || (dateStr===todayStr && s.dailySec && (s.dailySec[dateStr]||0)>0 ? dateStr : null);
-      if(d!==dateStr) return;
-      const mins=Math.max(1, Math.round((s.elapsedSec||0)/60));
-      const spct = s.done ? 100 : Math.min(99, Math.round((mins/15)*100));
-      sum+=spct; n++; minutes+=mins;
-    });
-  });
-  if(!n) return null;
-  const progress=Math.round(sum/n);
-  return {
-    id:'day|'+dateStr,
-    label: n===1 ? '1 task tracked' : n+' tasks tracked',
-    dateStr,
-    minutes: Math.max(1, Math.round(minutes)),
-    progress,
-    growing: dateStr===todayStr && progress<100,
-    withered: escapismMinutesForDate(dateStr) >= WITHER_MIN
-  };
-}
-function gardenDaySummariesForScope(scope){
-  return datesForGardenScope(scope).map(gardenDaySummary).filter(Boolean);
-}
-function setGardenScope(scope, btn){
-  gardenScope=scope;
-  document.querySelectorAll('.scope-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  renderGarden();
-}
-function renderGarden(){
-  const plot=document.getElementById('gardenPlot');
-  const emptyNote=document.getElementById('gardenEmpty');
-  if(!plot) return;
-  const events=gardenEventsForScope(gardenScope);
-  if(!events.length){
-    plot.innerHTML='<div class="garden-empty-plot">Start any timer and your first plant will appear here.</div>';
-    document.getElementById('gardenTotal').innerText=0;
-    document.getElementById('gardenHours').innerText='0h';
-    document.getElementById('gardenWithered').innerText=0;
-    document.getElementById('gardenBiggest').innerText='—';
-    emptyNote.innerText='';
-    return;
-  }
-  let totalMinutes=0, withered=0, biggest=null;
-  events.forEach(e=>{
-    totalMinutes+=e.minutes;
-    if(e.withered) withered++;
-    if(!biggest || e.minutes>biggest.minutes) biggest=e;
-  });
-  // Today shows the detailed per-task/subtask breakdown (few icons either way).
-  // Week/month/all collapse to one tree per day so a productive stretch
-  // doesn't turn into a wall of dozens of near-identical icons.
-  const plotEvents = gardenScope==='day' ? events : gardenDaySummariesForScope(gardenScope);
-  const html=plotEvents.map(e=>{
-    const visual=gardenTreeVisual(e.progress,e.minutes);
-    const emoji=e.withered ? DEAD_EMOJI : visual.emoji;
-    const size=e.withered ? 24 : visual.size;
-    const dateLabel=e.dateStr && e.dateStr!=='unknown' ? e.dateStr.slice(5) : '';
-    const stage=e.withered ? 'withered' : (e.progress>=100 ? 'full tree' : e.progress>=75 ? 'young tree' : e.progress>=50 ? 'sapling' : e.progress>=20 ? 'sprout' : 'seed');
-    const title=`${e.label} · ${e.minutes}m · ${stage}${dateLabel ? ' · '+dateLabel : ''}${e.withered ? ' · withered by screen drift that day' : ''}`;
-    const safeTitle=escapeHtml(title).replace(/'/g,"\\'");
-    return `<div class="garden-tree ${e.growing ? 'growing':''}" style="font-size:${size}px" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}" onclick="toast('${safeTitle}')">${emoji}</div>`;
-  }).join('');
-  plot.innerHTML=html;
-  document.getElementById('gardenTotal').innerText=events.length;
-  document.getElementById('gardenHours').innerText=(totalMinutes/60).toFixed(1)+'h';
-  document.getElementById('gardenWithered').innerText=withered;
-  document.getElementById('gardenBiggest').innerText=biggest ? `${biggest.label} (${biggest.minutes}m)` : '—';
-  emptyNote.innerText=gardenScope==='day' ? 'Plants update as timers run.' : '';
-}
-
-/* ============================================================
-   ACT TOOLKIT — quick practices
-   ============================================================ */
-function openQuickPractice(type){
-  if(activeQuickPractice === type){
-    activeQuickPractice = null;
-    document.getElementById('quickPracticeCard').classList.add('hidden');
-    document.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active'));
-    return;
-  }
-  activeQuickPractice = type;
-  document.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('qbtn-'+type).classList.add('active');
-  const card = document.getElementById('quickPracticeCard');
-  card.classList.remove('hidden');
-
-  if(type==='ground'){
-    card.innerHTML = `<h3>Come back to the room</h3><p class="subnote">Notice, one at a time — there's no wrong answer.</p><div id="groundStepArea" style="margin-top:10px;"></div><div class="ground-progress" id="groundProgress"></div>`;
-    startGrounding();
-  } else if(type==='breathe'){
-    card.innerHTML = `
-      <h3>Ride it out</h3>
-      <p class="subnote">Follow the orb: in on the expand, out on the contract. Use the breath as an anchor while you make room for whatever is here.</p>
-      <div class="breath-orb-wrap">
-        <div class="breath-orb" id="breathOrb"></div>
-        <div class="breath-label" id="breathLabel"></div>
-      </div>
-      <button class="btn small block" id="breathBtn" style="margin-top:6px;" onclick="toggleBreathing()">Start</button>`;
-  } else if(type==='defuse'){
-    card.innerHTML = `
-      <h3>Loosen the thought's grip</h3>
-      <p class="subnote">The thought doesn't need to be wrong for this to work — just a little less fused to you.</p>
-      <label style="margin-top:8px; display:block;">The thought</label>
-      <input type="text" id="defuserInput" placeholder="e.g. Everyone thinks I'm boring" />
-      <label style="margin-top:8px; display:block;">Try it this way</label>
-      <select id="defuseTechnique">
-        <option value="having">"I'm having the thought that..."</option>
-        <option value="thankmind">Thank your mind</option>
-        <option value="silly">Say it in a silly voice / sing it</option>
-        <option value="leaves">Leaves on a stream</option>
-        <option value="nameit">Name the story</option>
-        <option value="mindread">Label the mind-read</option>
-        <option value="physicalize">Give it a shape</option>
-      </select>
-      <button class="btn small block" style="margin-top:10px;" onclick="defuseThought()">Apply</button>
-      <div id="defuserResult" class="hidden" style="margin-top:10px; padding:10px; background:var(--surface-2); border-radius:9px; font-size:13px; color:var(--text);"></div>`;
-  } else if(type==='observer'){
-    card.innerHTML = `<h3>You're not the weather</h3><p class="subnote">Notice the part of you that can observe thoughts and feelings without needing to fix them.</p><div id="observerStepArea" style="margin-top:10px;"></div><div class="ground-progress" id="observerProgress"></div>`;
-    startObserver();
-  } else if(type==='kindness'){
-    card.innerHTML = `<h3>Self-compassion break</h3><p class="subnote">The self-criticism that follows social anxiety (\u201cthat was so awkward\u201d) usually hurts more than the anxiety itself. This interrupts it.</p><div id="kindnessStepArea" style="margin-top:10px;"></div><div class="ground-progress" id="kindnessProgress"></div>`;
-    startKindness();
-  }
-}
-
-const DEFUSE_FRAMES = {
-  having: t => `"I'm having the thought that ${t}." Notice: that's a sentence about a thought, not the thought treated as fact.`,
-  thankmind: t => `"Thanks, mind, for that one — the '${t}' thought again." You're acknowledging it arrived without adopting it.`,
-  silly: t => `Try saying "${t}" out loud in the voice of a cartoon character, or singing it to a tune you know. The words stay the same; the weight drops.`,
-  leaves: t => `Picture a stream. Place the thought "${t}" on a leaf and watch it float past — you're on the bank, not in the water.`,
-  nameit: t => `Give the pattern a name: "Ah, there's the '${t}' story again." Naming it as a familiar story creates a little distance.`,
-  mindread: t => `Try: "My mind is guessing what other people think — the guess is '${t}.'" A guess about someone else's private thoughts is a mind-read, not a report of fact, however confident it feels.`,
-  physicalize: t => `Close your eyes for a moment and picture "${t}" as an object — a size, a color, a texture, maybe even a weight. Let it sit a foot or two in front of you. You're not fighting it or shrinking it on purpose — just noticing it's a thing you can look at, not something you're fused inside.`
-};
-function defuseThought(){
-  const input = document.getElementById('defuserInput').value.trim();
-  if(!input) return toast('Enter a thought first');
-  const technique = document.getElementById('defuseTechnique').value;
-  const res = document.getElementById('defuserResult');
-  res.classList.remove('hidden');
-  res.innerText = DEFUSE_FRAMES[technique](input);
-}
-
-let breathing = false, breathTimeout = null;
-function toggleBreathing(){
-  breathing = !breathing;
-  const btn = document.getElementById('breathBtn');
-  if(breathing){
-    btn.innerText = 'Stop';
-    breathCycle();
-  }else{
-    btn.innerText = 'Start';
-    clearTimeout(breathTimeout);
-    const orb = document.getElementById('breathOrb');
-    if(orb) orb.style.transform='scale(1)';
-    const label = document.getElementById('breathLabel');
-    if(label) label.innerText='';
-  }
-}
-function breathCycle(){
-  if(!breathing) return;
-  const orb = document.getElementById('breathOrb');
-  const label = document.getElementById('breathLabel');
-  if(!orb) { breathing=false; return; }
-  orb.style.transform='scale(1.45)';
-  label.innerText='Breathe in...';
-  breathTimeout = setTimeout(()=>{
-    if(!breathing) return;
-    orb.style.transform='scale(1)';
-    label.innerText='Breathe out...';
-    breathTimeout = setTimeout(breathCycle, 4000);
-  }, 4000);
-}
-
-const GROUND_PROMPTS = [
-  { label:'5 things you can see', id:'see' },
-  { label:'4 things you can feel touching you', id:'feel' },
-  { label:'3 things you can hear', id:'hear' },
-  { label:'2 things you can smell', id:'smell' },
-  { label:'1 thing you appreciate about right now', id:'app' }
-];
-let groundStep = 0;
-function startGrounding(){
-  groundStep = 0;
-  renderGroundStep();
-}
-function renderGroundStep(){
-  const area = document.getElementById('groundStepArea');
-  const prog = document.getElementById('groundProgress');
-  if(!area) return;
-  prog.innerHTML = GROUND_PROMPTS.map((_,i)=>`<span class="${i<groundStep?'done':''}"></span>`).join('');
-  if(groundStep >= GROUND_PROMPTS.length){
-    area.innerHTML = `<p class="ground-step">Grounded. Whenever you're ready, carry that into the next step.</p>`;
-    return;
-  }
-  const p = GROUND_PROMPTS[groundStep];
-  area.innerHTML = `
-    <div class="ground-step">${p.label}</div>
-    <input type="text" id="groundInput" placeholder="Type it, then continue" />
-    <button class="btn small" style="margin-top:8px;" onclick="nextGroundStep()">Next</button>`;
-}
-function nextGroundStep(){ groundStep++; renderGroundStep(); }
-
-/* ---- Self-as-context / observer-self ---- */
-const OBSERVER_PROMPTS = [
-  { label:'Name the anxious thought or feeling that\u2019s here right now, as if reporting it.' },
-  { label:'Now notice: something in you is aware of that thought. That noticing part isn\u2019t anxious \u2014 it\u2019s just watching. Can you feel the difference between the anxiety and the part that sees the anxiety?' },
-  { label:'That noticing part has been present through every version of you \u2014 nervous, confident, bored, embarrassed. Anxiety is weather passing through it, not the sky itself.' },
-  { label:'From that observing place, name one small thing you\u2019re about to do anyway.' }
-];
-let observerStep = 0;
-function startObserver(){ observerStep = 0; renderObserverStep(); }
-function renderObserverStep(){
-  const area = document.getElementById('observerStepArea');
-  const prog = document.getElementById('observerProgress');
-  if(!area) return;
-  prog.innerHTML = OBSERVER_PROMPTS.map((_,i)=>`<span class="${i<observerStep?'done':''}"></span>`).join('');
-  if(observerStep >= OBSERVER_PROMPTS.length){
-    area.innerHTML = `<p class="ground-step">That watching place is always available \u2014 you don't have to earn calm to reach it, just notice it's there.</p>`;
-    return;
-  }
-  const p = OBSERVER_PROMPTS[observerStep];
-  area.innerHTML = `
-    <div class="ground-step">${p.label}</div>
-    <input type="text" id="observerInput" placeholder="Type it, then continue" />
-    <button class="btn small" style="margin-top:8px;" onclick="nextObserverStep()">Next</button>`;
-}
-function nextObserverStep(){ observerStep++; renderObserverStep(); }
-
-/* ---- Self-compassion break ---- */
-const KINDNESS_PROMPTS = [
-  { label:'Name what\u2019s hard right now, in one honest sentence \u2014 no minimizing it, no dramatizing it.' },
-  { label:'This is a moment of struggle. Struggling with social anxiety is part of being human, not a personal flaw \u2014 plenty of people carry some version of this same fear.' },
-  { label:'Offer yourself the words you\u2019d offer a friend in this exact spot. Say them, even silently: \u201cMay I be kind to myself here.\u201d' }
-];
-function startKindness(){ kindnessStep = 0; renderKindnessStep(); }
-function renderKindnessStep(){
-  const area = document.getElementById('kindnessStepArea');
-  const prog = document.getElementById('kindnessProgress');
-  if(!area) return;
-  prog.innerHTML = KINDNESS_PROMPTS.map((_,i)=>`<span class="${i<kindnessStep?'done':''}"></span>`).join('');
-  if(kindnessStep >= KINDNESS_PROMPTS.length){
-    area.innerHTML = `<p class="ground-step">That kindness doesn't need to be earned by doing better next time \u2014 it's available right now, exactly as this went.</p>`;
-    return;
-  }
-  const p = KINDNESS_PROMPTS[kindnessStep];
-  area.innerHTML = `
-    <div class="ground-step">${p.label}</div>
-    <input type="text" id="kindnessInput" placeholder="Type it, then continue" />
-    <button class="btn small" style="margin-top:8px;" onclick="nextKindnessStep()">Next</button>`;
-}
-function nextKindnessStep(){ kindnessStep++; renderKindnessStep(); }
-
-/* ---- Values compass ---- */
-function renderValuesArea(){
-  const area = document.getElementById('valuesArea');
-  const domains = ['Career','Connection','Health','Growth','Creativity','Contribution'];
-  area.innerHTML = domains.map(d=>`
-    <div class="value-row">
-      <div class="vlabel"><b>${d}</b><span id="vval-${d}">${values[d]}</span></div>
-      <input type="range" min="1" max="10" value="${values[d]}" oninput="updateValueSlider('${d}', this.value)" />
-    </div>`).join('') + `
-    <label style="margin-top:12px; display:block;">Today's values-aligned intention</label>
-    <input type="text" id="valueIntention" value="${escapeHtml(values.intention||'')}" placeholder="e.g. Speak up once in standup" />
-    <button class="btn small" id="valuesSaveBtn" style="margin-top:8px;" onclick="saveValues()">Save</button>`;
-}
-function updateValueSlider(domain, val){
-  values[domain] = parseInt(val);
-  document.getElementById('vval-'+domain).innerText = val;
-}
-function saveValues(){
-  values.intention = document.getElementById('valueIntention').value;
-  valuesHistory[todayStr] = { ...values };
-  persistTrackerState();
-  saveJSON('values-history', valuesHistory);
-  flashSaved(document.getElementById('valuesSaveBtn'));
-  renderDayLookup();
-  toast('Values saved');
-}
-
-function saveActNote(id){
-  actNotes[id] = document.getElementById('note-'+id).value;
-  actNotesHistory[todayStr] = { ...(actNotesHistory[todayStr]||{}), [id]: actNotes[id] };
-  persistTrackerState();
-  saveJSON('act-notes-history', actNotesHistory);
-  flashSaved(document.getElementById(id+'SaveBtn'));
-  renderDayLookup();
-  toast('Saved');
-}
-
-/* ============================================================
-   AI REFLECTION — uses Puter.js (puter.ai.chat) for a short
-   ACT-informed reflection on today's entries. Puter.js handles
-   auth itself (a login popup on first use), no key to manage.
-   ============================================================ */
-function buildACTSummary(){
-  const lines = [];
-  const valueLines = Object.entries(values).filter(([k])=>k!=='intention').map(([k,v])=>`${k} ${v}/10`);
-  if(valueLines.length) lines.push(`Values compass (how much they're living each domain right now, 0-10): ${valueLines.join(', ')}.`);
-  if(values.intention) lines.push(`Today's committed-action intention: ${values.intention}`);
-  if(hierarchy.length) lines.push(`Exposure ladder (their own graded list of avoided situations, easy to hard): ${hierarchy.map(h=>`[${h.diff}] ${h.text}${h.done?' (done)':''}`).join('; ')}`);
-  if(exposureReps.length) lines.push(`Today's exposure reps, each with anxiety before/after and a willingness rating (0-10 = how willing they were to have the discomfort, not just endure it): ${exposureReps.map(r=>`"${r.trigger}" anxiety ${r.pre}\u2192${r.post}${r.willingness!==undefined?`, willingness ${r.willingness}/10`:''}${r.defusion?`, defusion note: ${r.defusion}`:''}`).join(' | ')}`);
-  if(actNotes.hopelessness) lines.push(`Creative-hopelessness check-in (what they've tried to control the anxiety, and whether it actually held up): ${actNotes.hopelessness}`);
-  return lines.length ? lines.join('\n') : 'No ACT entries logged yet today.';
-}
-function buildACTPrompt(summary){
-  // The instruction below deliberately front-loads "apply ACT" as the lens
-  // for reading the raw entries, rather than leaving the model guess how a
-  // values slider or a ladder rung is meant to be interpreted.
-  return `You're a warm, ACT-informed reflection voice inside a self-tracking app for someone working on social anxiety. Write the way a good ACT therapist would talk in session: direct, curious, and caring — never clinical, never a list of generic compliments. You are not their therapist and must not diagnose or give clinical advice.
-
-Apply Acceptance and Commitment Therapy (ACT) as the lens for reading everything below — this is not a to-do list to grade or a mood to fix. Each entry maps to a specific ACT process, noted in parentheses so you read it in context rather than at face value:
-- Values compass sliders = valued living, not a performance score.
-- Exposure ladder and today's intention = committed action.
-- Exposure reps' anxiety and willingness ratings = acceptance/willingness (the point is not that anxiety went down, but whether they were willing to have it and act anyway).
-- The check-in note = creative hopelessness (auditing control strategies that don't hold up long-term, without shaming the person for having tried them).
-
-Write exactly three short paragraphs, in this order, nothing before or after:
-1. Affirm one genuine, specific act of willingness or values-aligned effort you actually see in the data — name the actual thing they did, not a generic compliment.
-2. Name the gap, honestly and without shaming them — where avoidance, rigidity, or a control strategy is showing up in what they logged, and what it's quietly costing them.
-3. Give one concrete, workable next step tied to their own stated values or the next rung on their own ladder.
-
-Formatting rules — follow exactly: plain prose sentences only, three paragraphs separated by a blank line. No markdown, no asterisks, no bullet points, no headers, no bold text.
-
-Entries:
-${summary}`;
-}
-// Strips markdown emphasis/bullet markers a model might add despite the
-// plain-prose instruction above, since aiOutput renders as plain text and
-// literal "**word**" or "- " would otherwise show up unrendered.
-function stripMarkdown(text){
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/\*(.*?)\*/g, '$1')
-    .replace(/^#{1,6}\s*/gm, '')
-    .replace(/^[\s]*[-*]\s+/gm, '')
-    .trim();
-}
-async function callAI(messageText){
-  if(!window.puter || !puter.ai || !puter.ai.chat){
-    throw new Error('Puter.js hasn\u2019t loaded — check your connection and try again.');
-  }
-  const response = await puter.ai.chat(messageText);
-  if(typeof response === 'string') return response.trim();
-  const content = response && response.message && response.message.content;
-  if(typeof content === 'string') return content.trim();
-  if(Array.isArray(content)) return content.map(p=>p.text||'').join('\n').trim();
-  return String(response).trim();
-}
-async function analyzeWithAI(){
-  const btn = document.getElementById('aiAnalyzeBtn');
-  btn.disabled = true; btn.innerText = 'Thinking\u2026';
-  const summary = buildACTSummary();
-  const prompt = buildACTPrompt(summary);
-  try{
-    const text = await callAI(prompt);
-    lastAIResponse = stripMarkdown(text || 'No response text came back.');
-    lastAISummary = summary;
-    const out = document.getElementById('aiOutput');
-    out.innerText = lastAIResponse;
-    out.classList.remove('hidden');
-    document.getElementById('aiSaveBtn').classList.remove('hidden');
-  }catch(e){
-    toast('Could not reach the AI: ' + e.message);
-  }finally{
-    btn.disabled = false; btn.innerText = 'Analyze my entries';
-  }
-}
-
-// Builds a summary across the last `days` days (today included), or returns
-// null if there's too little logged to say anything meaningful — the
-// caller uses that null to skip the AI call entirely rather than spend a
-// request on "not much happened."
-function buildRangeSummary(days){
-  const dates = [];
-  for(let i=0;i<days;i++){
-    const d = new Date(); d.setDate(d.getDate()-i);
-    dates.push(localDateStr(d));
-  }
-  const repsInRange = exposureRepsHistory.filter(r=>dates.includes(r.date));
-  const activeDays = new Set(repsInRange.map(r=>r.date));
-  dates.forEach(d=>{
-    const v = d===todayStr ? values : valuesHistory[d];
-    const n = d===todayStr ? actNotes : actNotesHistory[d];
-    if(v && v.intention) activeDays.add(d);
-    if(n && n.hopelessness) activeDays.add(d);
-  });
-  if(activeDays.size < 2) return null;
-
-  const lines = [`Range: last ${days} days, ${activeDays.size} day(s) with anything logged.`];
-  if(repsInRange.length){
-    lines.push(`Exposure reps across the range (${repsInRange.length} total): ${repsInRange.map(r=>`${r.date}: "${r.trigger}" anxiety ${r.pre}\u2192${r.post}${r.willingness!==undefined?`, willingness ${r.willingness}/10`:''}`).join(' | ')}`);
-  }
-  const intentions = dates.filter(d=>{ const v=d===todayStr?values:valuesHistory[d]; return v && v.intention; })
-    .map(d=>{ const v=d===todayStr?values:valuesHistory[d]; return `${d}: ${v.intention}`; });
-  if(intentions.length) lines.push(`Stated intentions across the range: ${intentions.join(' | ')}`);
-  const checkins = dates.filter(d=>{ const n=d===todayStr?actNotes:actNotesHistory[d]; return n && n.hopelessness; })
-    .map(d=>{ const n=d===todayStr?actNotes:actNotesHistory[d]; return `${d}: ${n.hopelessness}`; });
-  if(checkins.length) lines.push(`Check-in notes across the range: ${checkins.join(' | ')}`);
-  return lines.join('\n');
-}
-
-function buildRangePrompt(summary, label){
-  return `You're a warm, ACT-informed reflection voice inside a self-tracking app for someone working on social anxiety. Write the way a good ACT therapist would talk in session: direct, curious, and caring — never clinical. You are not their therapist and must not diagnose or give clinical advice.
-
-Below is their logged data across ${label}, not just one day — read it for a pattern across the days, not a single moment. Exposure reps' anxiety and willingness ratings are about acceptance/willingness (whether they were willing to have the discomfort and act anyway, not whether the anxiety number dropped). Stated intentions and check-in notes are about committed action and creative hopelessness (auditing which control strategies keep getting tried and not holding up).
-
-Write exactly three short paragraphs, in this order, nothing before or after:
-1. Affirm one real pattern of willingness or values-aligned effort building across these days — name what you actually see, not a generic compliment.
-2. Name the gap, honestly and without shaming them — a pattern of avoidance, a repeated strategy that isn't working, or stalling, that shows up across the days.
-3. Give one concrete, workable next step for the coming stretch, tied to their own stated values or the next rung on their own ladder.
-
-Formatting rules — follow exactly: plain prose sentences only, three paragraphs separated by a blank line. No markdown, no asterisks, no bullet points, no headers, no bold text.
-
-Logged data:
-${summary}`;
-}
-
-async function analyzeRange(days, label, btnId){
-  const summary = buildRangeSummary(days);
-  if(!summary){
-    toast(`Not enough data logged yet to analyze ${label}.`);
-    return;
-  }
-  const btn = document.getElementById(btnId);
-  const orig = btn.innerText;
-  btn.disabled = true; btn.innerText = 'Thinking\u2026';
-  const prompt = buildRangePrompt(summary, label);
-  try{
-    const text = await callAI(prompt);
-    lastAIResponse = stripMarkdown(text || 'No response text came back.');
-    lastAISummary = summary;
-    const out = document.getElementById('aiOutput');
-    out.innerText = lastAIResponse;
-    out.classList.remove('hidden');
-    document.getElementById('aiSaveBtn').classList.remove('hidden');
-  }catch(e){
-    toast('Could not reach the AI: ' + e.message);
-  }finally{
-    btn.disabled = false; btn.innerText = orig;
-  }
-}
-
-function saveAIInsight(){
-  if(!lastAIResponse) return;
-  aiInsights.unshift({ date: todayStr, summary: lastAISummary, response: lastAIResponse });
-  saveJSON('ai-insights', aiInsights);
-  renderAIInsights();
-  toast('Reflection saved');
-}
-function renderAIInsights(){
-  const list = document.getElementById('aiInsightsList');
-  if(!list) return;
-  const dateInput = document.getElementById('aiHistoryDate');
-  const pickedDate = dateInput && dateInput.value;
-  const entries = pickedDate ? aiInsights.filter(e=>e.date===pickedDate) : aiInsights.slice(0,20);
-  if(!entries.length){
-    list.innerHTML = pickedDate ? `\ud83d\ude14 Sorry, no reflection saved on this day.` : 'None saved yet.';
-    list.className='empty';
-    return;
-  }
-  list.className='';
-  list.innerHTML = entries.map(e=>`
-    <div class="exp-item">
-      <b>${e.date}</b>
-      <div class="meta" style="white-space:pre-wrap;">${escapeHtml(e.response)}</div>
-    </div>`).join('');
-}
-
-function toggleReference(){
-  const box = document.getElementById('referenceBox');
-  if(box.classList.contains('hidden')){
-    box.innerHTML = `<p class="guide-intro"><strong>How to use this when you're stuck:</strong> Don't try to solve everything at once. First notice what is happening, then loosen the struggle with it, reconnect with the present, identify what matters, and finally take one small action in that direction. The goal is not to feel ready or eliminate anxiety; the goal is to respond more deliberately.</p>
-    <div class="card" style="margin:8px 0 4px; padding:12px; background:var(--bg-soft);"><div class="glabel" style="margin-top:0;">A simple reset sequence</div><ol style="margin:4px 0 0; padding-left:20px;"><li class="guide-step-inline">Name what is happening right now.</li><li class="guide-step-inline">Notice the thought, feeling, or body sensation without arguing with it.</li><li class="guide-step-inline">Ask what you have been doing to control or avoid it, and whether that strategy is workable.</li><li class="guide-step-inline">Return attention to the present moment.</li><li class="guide-step-inline">Ask: <em>What kind of person do I want to be in this situation?</em></li><li class="guide-step-inline">Choose one small action that expresses that value, even with discomfort present.</li></ol></div>` +
-    REFERENCE.map((r,i)=>`
-      <div class="guide-step">
-        <div class="guide-num">${i+1}</div>
-        <div>
-          <h4>${r.title}</h4>
-          <p style="color:var(--faint); font-size:11.5px; margin-bottom:4px;">${r.sub}</p>
-          <p>${r.what}</p>
-          <div class="glabel">Why it matters</div>
-          <p>${r.why}</p>
-          <div class="glabel">How to actually do it</div>
-          <ul>${r.how.map(step=>`<li>${step}</li>`).join('')}</ul>
-          <div class="glabel">Common trap</div>
-          <p>${r.trap}</p>
-        </div>
-      </div>`).join('');
-    box.classList.remove('hidden');
-  }else{
-    box.classList.add('hidden');
-  }
-}
-
-/* ---- Exposure hierarchy ladder ---- */
-function addLadderItem(){
-  const text = document.getElementById('ladderText').value.trim();
-  const diff = Math.max(1, Math.min(10, parseInt(document.getElementById('ladderDiff').value)||5));
-  if(!text) return toast('Describe the situation first');
-  hierarchy.push({ id:'r'+Date.now(), text, diff, done:false });
-  hierarchy.sort((a,b)=>a.diff-b.diff);
-  document.getElementById('ladderText').value='';
-  persistTrackerState();
-  renderLadder();
-}
-function toggleLadderItem(id){
-  const item = hierarchy.find(h=>h.id===id);
-  if(item) item.done = !item.done;
-  persistTrackerState();
-  renderLadder();
-}
-function removeLadderItem(id){
-  hierarchy = hierarchy.filter(h=>h.id!==id);
-  persistTrackerState();
-  renderLadder();
-}
-function renderLadder(){
-  const list = document.getElementById('ladderList');
-  if(!hierarchy.length){ list.innerHTML = '<div class="empty">No rungs yet — add your first situation above.</div>'; return; }
-  list.innerHTML = hierarchy.map(h=>`
-    <div class="ladder-row">
-      <div class="ladder-diff">${h.diff}</div>
-      <div class="ladder-text ${h.done?'done':''}">${escapeHtml(h.text)}</div>
-      <div class="ladder-check ${h.done?'on':''}" onclick="toggleLadderItem('${h.id}')"></div>
-      <button class="icon-btn" style="font-size:15px;" onclick="removeLadderItem('${h.id}')">\u00d7</button>
-    </div>
-  `).join('');
-}
-
-/* ---- Exposure log ---- */
-function saveExposureRep(){
-  const trigger = document.getElementById('expTrigger').value.trim();
-  const pre = document.getElementById('preAnxiety').value;
-  const post = document.getElementById('postAnxiety').value;
-  const willingness = document.getElementById('willingness').value;
-  const droppedSafety = document.getElementById('droppedSafetyCheck').checked;
-  const defusion = document.getElementById('defusionNote').value.trim();
-  if(!trigger) return toast('Describe what you did');
-
-  // First rep of the day also flips on the separate +10% "done today" bonus
-  // (see getNetDailyScoreForDate) on top of its own +5% — later reps only
-  // add the +5% per-rep amount, so the toast reflects whichever applies.
-  const isFirstRepToday = !exposureDoneToday;
-  const id = 'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-  const rep = { id, date: todayStr, trigger, pre, post, willingness, droppedSafety, defusion };
-  exposureReps.push(rep);
-  exposureRepsHistory.push(rep); // same object reference — never wiped on day rollover, so it stays viewable by date after today
-  exposureDoneToday = true;
-  if(!exposureDaysLog.includes(todayStr)) exposureDaysLog.push(todayStr);
-
-  document.getElementById('expTrigger').value='';
-  document.getElementById('defusionNote').value='';
-  document.getElementById('droppedSafetyCheck').checked=false;
-  document.getElementById('willingness').value='7';
-
-  persistTrackerState();
-  saveJSON('exposure-history', exposureRepsHistory);
-  renderExposureList();
-  renderDayLookup();
-  updateUI();
-  toast(isFirstRepToday ? 'Exposure logged (+15% — first rep today)' : 'Exposure logged (+5%)');
-}
-function deleteExposureRep(id){
-  exposureReps = exposureReps.filter(r=>r.id!==id);
-  exposureRepsHistory = exposureRepsHistory.filter(r=>r.id!==id);
-  // Recompute today's "done" flag/streak entry from what's actually left,
-  // rather than leaving a stale bonus active for a rep that's been removed.
-  exposureDoneToday = exposureReps.length>0;
-  if(!exposureDoneToday) exposureDaysLog = exposureDaysLog.filter(d=>d!==todayStr);
-  persistTrackerState();
-  saveJSON('exposure-history', exposureRepsHistory);
-  renderExposureList();
-  renderDayLookup();
-  updateUI();
-  toast('Removed');
-}
-function renderExposureList(){
-  const list = document.getElementById('exposureList');
-  if(!exposureReps.length){ list.innerHTML='None logged today.'; list.className='empty'; return; }
-  list.className='';
-  list.innerHTML = exposureReps.map(r=>`
-    <div class="exp-item">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-        <b>${escapeHtml(r.trigger)}</b>
-        <button class="icon-btn" style="font-size:15px;" onclick="deleteExposureRep('${r.id}')">\u00d7</button>
-      </div>
-      <div class="meta">Anxiety ${r.pre}/10 \u2192 ${r.post}/10${r.willingness!==undefined?` &middot; willingness ${r.willingness}/10`:''} ${r.droppedSafety?'<span class="tag">&middot; safety behaviors dropped</span>':''}</div>
-      ${r.defusion ? `<div class="note">"${escapeHtml(r.defusion)}"</div>` : ''}
-    </div>
-  `).join('');
-}
-
-/* ============================================================
-   REFLECTION
-   ============================================================ */
-function saveReflection(){
-  const note = document.getElementById('misjudgmentNote').value.trim();
-  if(!note) return toast('Write something first');
-  reflections[todayStr] = note;
-  saveJSON('reflections', reflections);
-  document.getElementById('misjudgmentNote').value='';
-  renderReflections();
-  toast('Reflection saved');
-}
-function renderReflections(){
-  const list = document.getElementById('reflectionList');
-  const entries = Object.entries(reflections).sort((a,b)=>a[0]<b[0]?1:-1);
-  if(!entries.length){ list.innerHTML='Nothing written yet.'; list.className='empty'; return; }
-  list.className='';
-  list.innerHTML = entries.slice(0,20).map(([date,note])=>`
-    <div style="padding:9px 0; border-bottom:1px solid var(--line);">
-      <div style="font-size:12px; color:var(--faint); margin-bottom:2px;">${date}</div>
-      <div style="font-size:13px; color:var(--text);">${escapeHtml(note)}</div>
-    </div>
-  `).join('');
-}
-
-/* ---- Dharma reflection ---- */
-
-function dharmaMeditate(btn){
-  btn.classList.toggle('active');
-  btn.querySelector('span:last-child').innerText = btn.classList.contains('active') ? 'Sitting…' : 'Pause & sit';
-  toast(btn.classList.contains('active') ? 'Take a quiet minute.' : 'Meditation paused.');
-}
-
-function saveDharma(){
-  const concept = document.getElementById('dharmaConcept').value.trim();
-  const note = document.getElementById('dharmaNote').value.trim();
-  if(!note) return toast('Write what you noticed');
-  dharmaLog.unshift({ date: todayStr, concept, note });
-  saveJSON('dharma-log', dharmaLog);
-  document.getElementById('dharmaConcept').value='';
-  document.getElementById('dharmaNote').value='';
-  renderDharmaList();
-  toast('Saved');
-}
-function renderDharmaList(){
-  const list = document.getElementById('dharmaList');
-  if(!dharmaLog.length){ list.innerHTML='Nothing written yet.'; list.className='empty'; return; }
-  list.className='';
-  list.innerHTML = dharmaLog.slice(0,20).map(e=>`
-    <div class="dharma-item">
-      ${e.concept ? `<div class="concept">${escapeHtml(e.concept)}</div>` : ''}
-      <div class="note">${escapeHtml(e.note)}</div>
-      <div class="date">${e.date}</div>
-    </div>
-  `).join('');
-}
-
-/* ============================================================
-   TABS
-   ============================================================ */
-function showTab(tabId, btn){
-  document.querySelectorAll('.tab-content').forEach(el=>el.classList.add('hidden'));
-  document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
-  document.getElementById(tabId).classList.remove('hidden');
-  btn.classList.add('active');
-  if(tabId==='garden') renderGarden();
-}
-
-window.addEventListener('beforeunload', persistTrackerState);
-// beforeunload is unreliable on mobile (apps get swapped away without it
-// firing) — visibilitychange fires whenever the tab/app is backgrounded and
-// is the more trustworthy save point.
-document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState === 'hidden'){
-    persistTrackerState();
-    saveJSON('task-history', taskHistory);
-  }
-});
-
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js').catch(()=>{ /* fine if this file isn't hosted with a service worker available */ });
-  });
-}
-</script>
-</body>
-</html>
+  
