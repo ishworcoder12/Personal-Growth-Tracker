@@ -77,6 +77,10 @@
   .card h3{ font-size:16px; margin-bottom: 4px; }
   .subnote{ color:var(--subtext); font-size:var(--fs-sm); line-height:1.5; }
 
+  .section-heading{ display:flex; justify-content:space-between; align-items:center; margin: 22px 0 10px; gap:8px; }
+  .section-heading h2{ font-size: 19px; }
+
+  button{ font-family:var(--font-body); }
   .btn{ background: var(--moss-deep); color: var(--text); border:none; padding:10px 16px; border-radius: 30px; font-weight:600; font-size:var(--fs-sm); cursor:pointer; transition: filter .15s ease, transform .15s ease; }
   .btn:hover{ filter:brightness(1.12); }
   .btn:active{ transform: scale(0.98); }
@@ -86,19 +90,10 @@
   .btn.block{ width:100%; }
   .btn.small{ padding:6px 12px; font-size:var(--fs-sm); }
 
-  .ring{ width:88px; height:88px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; background: conic-gradient(var(--moss) calc(var(--pct,0)*1%), var(--surface-2) 0); }
-  .ring-inner{ width:68px; height:68px; border-radius:50%; background:var(--surface); display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .ring-inner b{ font-family:var(--font-display); font-size:19px; }
-  .ring-inner span{ font-size:var(--fs-xs); color:var(--faint); }
-
   .loading-screen{ position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; z-index:50; }
   .loading-screen .orb{ width:28px; height:28px; border-radius:50%; background:var(--moss); animation: pulse 1.1s ease-in-out infinite; }
   @keyframes pulse{ 0%,100%{ transform:scale(0.7); opacity:.5; } 50%{ transform:scale(1); opacity:1; } }
   .loading-screen span{ color:var(--subtext); font-size:var(--fs-sm); }
-
-  .exp-item{ padding:9px 0; border-bottom:1px solid var(--line); font-size:var(--fs-sm); }
-  .exp-item:last-child{ border-bottom:none; }
-  .exp-item .meta{ color:var(--subtext); font-size:var(--fs-sm); margin-top:2px; }
 
   .empty{ color:var(--faint); font-size:var(--fs-sm); padding: 6px 0; }
 </style>
@@ -121,38 +116,14 @@
     <button class="tab-btn active" onclick="showTab('dashboard', this)">Today</button>
     <button class="tab-btn" onclick="showTab('garden', this)">Garden</button>
     <button class="tab-btn" onclick="showTab('calendar', this)">History</button>
-    <button class="tab-btn" onclick="showTab('act', this)">ACT</button>
-    <button class="tab-btn" onclick="showTab('log', this)">Reflect</button>
+    <button class="tab-btn" onclick="showTab('act', this)">ACT Toolkit</button>
+    <button class="tab-btn" onclick="showTab('log', this)">Reflection</button>
   </div>
 
   <div id="dashboard" class="tab-content">
     <div class="card">
       <h3>Welcome back</h3>
-      <p class="subnote">Your tracker is loading. This is a placeholder while we rebuild the full interface.</p>
-    </div>
-
-    <div class="card">
-      <h3>Today's score</h3>
-      <div style="display:flex; align-items:center; gap:16px; margin-top:12px;">
-        <div class="ring" id="dayRing">
-          <div class="ring-inner"><b id="ringScore">0%</b><span>today</span></div>
-        </div>
-        <div>
-          <p class="subnote">Progress toward your goals</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Your tasks</h3>
-      <div id="tasksContainer" style="margin-top:12px;"></div>
-      <button class="btn small block" style="margin-top:10px;" onclick="addTask()">+ Add Task</button>
-    </div>
-
-    <div class="card">
-      <h3>Exposure reps</h3>
-      <div id="exposureList" class="empty">None logged today.</div>
-      <button class="btn small block" style="margin-top:10px;" onclick="logExposure()">Log a rep</button>
+      <p class="subnote">Your full tracker interface is being rebuilt. In the meantime, check the browser console for logs.</p>
     </div>
   </div>
 
@@ -186,281 +157,20 @@
 </div>
 
 <script>
-/* ============================================================
-   STORAGE LAYER — robust localStorage wrapper
-   ============================================================ */
-const STORAGE_PREFIX = 'gat:';
+console.log('Growth & ACT Tracker loaded');
 
-function storageAvailable(){
-  try {
-    const probe = '__gat_probe__';
-    localStorage.setItem(probe, '1');
-    localStorage.removeItem(probe);
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
+// Show app after a brief delay
+setTimeout(function() {
+  document.getElementById('loadingScreen').classList.add('hidden');
+  document.getElementById('mainApp').classList.remove('hidden');
+  console.log('✓ App ready');
+}, 500);
 
-window.storage = window.storage || {
-  async get(key, shared){
-    try{
-      if(!storageAvailable()) return null;
-      const raw = localStorage.getItem(STORAGE_PREFIX + key);
-      return raw === null ? null : { key, value: raw, shared: !!shared };
-    }catch(e){
-      console.warn('Storage read failed:', key, e);
-      return null;
-    }
-  },
-  async set(key, value, shared){
-    try{
-      if(!storageAvailable()) return null;
-      localStorage.setItem(STORAGE_PREFIX + key, value);
-      return { key, value, shared: !!shared };
-    }catch(e){
-      console.warn('Storage write failed:', key, e);
-      return null;
-    }
-  }
-};
-
-function safeJsonParse(raw, fallback){
-  if(raw === null || raw === undefined || raw === '') return fallback;
-  try{
-    return JSON.parse(raw);
-  }catch(e){
-    return fallback;
-  }
-}
-
-async function loadJSON(key, fallback){
-  try{
-    const r = await window.storage.get(key, false);
-    if(!r) return fallback;
-    return safeJsonParse(r.value, fallback);
-  }catch(e){
-    console.warn('loadJSON failed for', key, e);
-    return fallback;
-  }
-}
-
-async function saveJSON(key, obj){
-  try{
-    const serialized = JSON.stringify(obj);
-    await window.storage.set(key, serialized, false);
-  }catch(e){
-    console.warn('saveJSON failed for', key, e);
-  }
-}
-
-/* ============================================================
-   STATE
-   ============================================================ */
-const defaultTasks = [
-  { id:'meditation', name:'Meditation', floor:5, target:10, elapsedSec:0 },
-  { id:'exercise', name:'Exercise', floor:10, target:10, elapsedSec:0 },
-  { id:'german', name:'German', floor:10, target:90, elapsedSec:0 },
-  { id:'career', name:'Career', floor:15, target:120, elapsedSec:0 }
-];
-
-let tasks = [...defaultTasks];
-let exposureReps = [];
-let taskHistory = [];
-let activeRunKey = null;
-let activeRunSince = null;
-let todayStr = new Date().toISOString().slice(0, 10);
-
-async function restoreFromStorage(){
-  const saved = await loadJSON('tracker-state', {});
-  if(saved.tasks) tasks = saved.tasks;
-  if(saved.exposureReps) exposureReps = saved.exposureReps;
-  if(saved.taskHistory) taskHistory = saved.taskHistory;
-  if(saved.activeRunKey) activeRunKey = saved.activeRunKey;
-  if(saved.activeRunSince) activeRunSince = saved.activeRunSince;
-}
-
-async function persistState(){
-  await saveJSON('tracker-state', {
-    tasks, exposureReps, taskHistory, activeRunKey, activeRunSince, todayStr
-  });
-}
-
-/* ============================================================
-   RENDER & UPDATE FUNCTIONS
-   ============================================================ */
-
-function renderTasks(){
-  const container = document.getElementById('tasksContainer');
-  if(!container) return;
-  
-  if(!tasks || tasks.length === 0){
-    container.innerHTML = '<p class="empty">No tasks yet.</p>';
-    return;
-  }
-  
-  container.innerHTML = tasks.map((task, i) => {
-    const mins = Math.floor(task.elapsedSec / 60);
-    const pct = Math.min(100, (mins / task.target) * 100);
-    return `
-      <div style="margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--line);">
-        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-          <span>${task.name}</span>
-          <span style="color:var(--gold);">${mins}/${task.target}m</span>
-        </div>
-        <div style="height:6px; background:var(--surface-2); border-radius:3px; overflow:hidden;">
-          <div style="width:${pct}%; height:100%; background:var(--moss); transition:width .2s;"></div>
-        </div>
-        <div style="margin-top:6px; display:flex; gap:6px;">
-          <button class="btn small" onclick="startTimer(${i})">▶ Start</button>
-          <button class="btn ghost small" onclick="stopTimer(${i})">⏹ Stop</button>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function renderExposures(){
-  const list = document.getElementById('exposureList');
-  if(!list) return;
-  
-  if(!exposureReps || exposureReps.length === 0){
-    list.innerHTML = '<div class="empty">None logged today.</div>';
-    return;
-  }
-  
-  list.innerHTML = exposureReps.map((rep, i) => `
-    <div class="exp-item">
-      <div><b>${rep.trigger || 'Exposure rep'}</b></div>
-      <div class="meta">Anxiety: ${rep.preAnxiety} → ${rep.postAnxiety}</div>
-    </div>
-  `).join('');
-}
-
-function updateDayRing(){
-  const ring = document.getElementById('dayRing');
-  if(!ring) return;
-  
-  const score = calculateDayScore();
-  ring.style.setProperty('--pct', score);
-  const scoreText = document.getElementById('ringScore');
-  if(scoreText) scoreText.textContent = score + '%';
-}
-
-function calculateDayScore(){
-  if(!tasks || tasks.length === 0) return 0;
-  let total = 0;
-  tasks.forEach(t => {
-    if(t.target > 0) total += Math.min(100, (t.elapsedSec / 60 / t.target) * 100);
-  });
-  return Math.floor(Math.min(100, total / Math.max(tasks.length, 1)));
-}
-
-function updateClock(){
-  const clock = document.getElementById('liveClock');
-  if(!clock) return;
-  const now = new Date();
-  const h = String(now.getHours()).padStart(2, '0');
-  const m = String(now.getMinutes()).padStart(2, '0');
-  const s = String(now.getSeconds()).padStart(2, '0');
-  clock.textContent = `${h}:${m}:${s}`;
-}
-
-function showTab(name, btn){
+function showTab(name, btn) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
   document.getElementById(name)?.classList.remove('hidden');
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn?.classList.add('active');
-}
-
-function startTimer(idx){
-  const task = tasks[idx];
-  if(!task) return;
-  activeRunKey = task.id;
-  activeRunSince = Date.now();
-  renderTasks();
-}
-
-function stopTimer(idx){
-  if(activeRunKey === tasks[idx].id){
-    const elapsed = Math.floor((Date.now() - activeRunSince) / 1000);
-    tasks[idx].elapsedSec += elapsed;
-    activeRunKey = null;
-    activeRunSince = null;
-    persistState();
-    renderTasks();
-    updateDayRing();
-  }
-}
-
-function addTask(){
-  const name = prompt('Task name:');
-  if(name){
-    tasks.push({
-      id: 'custom_' + Date.now(),
-      name,
-      floor: 15,
-      target: 60,
-      elapsedSec: 0
-    });
-    persistState();
-    renderTasks();
-  }
-}
-
-function logExposure(){
-  const trigger = prompt('What did you do?');
-  if(trigger){
-    exposureReps.push({
-      trigger,
-      preAnxiety: 6,
-      postAnxiety: 3,
-      timestamp: new Date().toISOString()
-    });
-    persistState();
-    renderExposures();
-    updateDayRing();
-  }
-}
-
-/* ============================================================
-   INITIALIZATION
-   ============================================================ */
-
-async function init(){
-  console.log('App initializing...');
-  
-  try {
-    // Restore state
-    await restoreFromStorage();
-    
-    // Render UI
-    renderTasks();
-    renderExposures();
-    updateDayRing();
-    updateClock();
-    
-    // Show app, hide loading
-    document.getElementById('loadingScreen').classList.add('hidden');
-    document.getElementById('mainApp').classList.remove('hidden');
-    
-    // Start clock
-    setInterval(updateClock, 500);
-    
-    // Auto-save
-    setInterval(persistState, 5000);
-    
-    console.log('✓ App ready');
-  } catch (e) {
-    console.error('Init failed:', e);
-    document.getElementById('loadingScreen').innerHTML = '<p style="color:var(--rose);">Error loading app</p>';
-  }
-}
-
-if(document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
 }
 </script>
 
